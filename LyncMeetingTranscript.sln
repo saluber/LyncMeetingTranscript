@@ -1,0 +1,35 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 2012
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LyncMeetingTranscript", "LyncMeetingTranscript\LyncMeetingTranscript.csproj", "{650087E4-C9CE-47F7-980D-5B3898BD858C}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LyncMeetingTranscriptBotApp", "LyncMeetingTranscriptBotApplication\LyncMeetingTranscriptBotApp.csproj", "{3778175F-53A3-4F3A-8554-BF8E5E4297E1}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LyncMeetingTranscriptClientApp", "LyncMeetingTranscriptClientApp\LyncMeetingTranscriptClientApp.csproj", "{48F0F90B-BBE6-486F-902E-4E6072F19E39}"
+	ProjectSection(ProjectDependencies) = postProject
+		{650087E4-C9CE-47F7-980D-5B3898BD858C} = {650087E4-C9CE-47F7-980D-5B3898BD858C}
+	EndProjectSection
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{650087E4-C9CE-47F7-980D-5B3898BD858C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{650087E4-C9CE-47F7-980D-5B3898BD858C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{650087E4-C9CE-47F7-980D-5B3898BD858C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{650087E4-C9CE-47F7-980D-5B3898BD858C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3778175F-53A3-4F3A-8554-BF8E5E4297E1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3778175F-53A3-4F3A-8554-BF8E5E4297E1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3778175F-53A3-4F3A-8554-BF8E5E4297E1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3778175F-53A3-4F3A-8554-BF8E5E4297E1}.Release|Any CPU.Build.0 = Release|Any CPU
+		{48F0F90B-BBE6-486F-902E-4E6072F19E39}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{48F0F90B-BBE6-486F-902E-4E6072F19E39}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{48F0F90B-BBE6-486F-902E-4E6072F19E39}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{48F0F90B-BBE6-486F-902E-4E6072F19E39}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
