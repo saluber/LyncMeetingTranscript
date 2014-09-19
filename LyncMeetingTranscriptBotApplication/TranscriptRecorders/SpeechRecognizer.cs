@@ -20,7 +20,8 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
         private AutoResetEvent _waitForLoadGrammarCompleted = new AutoResetEvent(false);
 
         private TranscriptRecorder _transcriptRecorder;
-        private bool _isActive;
+        private bool _isActive = false;
+        private bool _isRecognizing = false;
 
         private SpeechRecognitionConnector _speechRecognitionConnector;
         private SpeechRecognitionEngine _speechRecognitionEngine;
@@ -53,6 +54,7 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             _transcriptRecorder = transcriptRecorder;
             _speechTranscript = new List<RecognitionResult>();
             _isActive = false;
+            _isRecognizing = false;
 
             // Create a speech recognition connector
             _speechRecognitionConnector = new SpeechRecognitionConnector();
@@ -62,7 +64,6 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             _speechRecognitionEngine.SpeechDetected += new EventHandler<SpeechDetectedEventArgs>(SpeechRecognitionEngine_SpeechDetected);
             _speechRecognitionEngine.RecognizeCompleted += new EventHandler<RecognizeCompletedEventArgs>(SpeechRecognitionEngine_RecognizeCompleted);
             _speechRecognitionEngine.LoadGrammarCompleted += new EventHandler<LoadGrammarCompletedEventArgs>(SpeechRecognitionEngine_LoadGrammarCompleted);
-            _pendingLoadSpeechGrammarCounter = 0;
 
             // TODO: Replace with language grammar sets
             _grammars = new List<Grammar>();
@@ -77,55 +78,67 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             LoadSpeechGrammarAsync();
         }
 
+        #region Public Methods
         public void AttachAndStartSpeechRecognition(AudioVideoFlow avFlow)
         {
             if (avFlow == null)
             {
                 throw new InvalidOperationException("Cannot recognize speech of inactive AudioVideoFlow");
             }
-
-            if (_isActive == false)
+            if (_isActive)
             {
-                _waitForAudioVideoFlowStateChangedToActiveCompleted.Reset();
-                _speechTranscript.Clear();
-                StopSpeechRecognition();
+                Console.WriteLine("Warn: SpeechRecognizer already active on an AudioFlow. Ignoring AttachAndStart() request.");
+                return;
             }
+
+            _waitForAudioVideoFlowStateChangedToActiveCompleted.Reset();
+            _speechTranscript.Clear();
+            StopSpeechRecognition();
 
             _isActive = true;
             _audioVideoFlow = avFlow;
-            _audioVideoFlow.StateChanged += AudioVideoFlow_StateChanged;
+            _audioVideoFlow.StateChanged += new EventHandler<MediaFlowStateChangedEventArgs>(AudioVideoFlow_StateChanged);
 
-            _waitForAudioVideoFlowStateChangedToActiveCompleted.WaitOne();
-            _waitForLoadGrammarCompleted.WaitOne();
+            if (_audioVideoFlow.State == MediaFlowState.Active)
+            {
+                this.StopSpeechRecognition();
+            }
 
-            _speechRecognitionConnector.AttachFlow(_audioVideoFlow);
-            _speechRecognitionStream = _speechRecognitionConnector.Start();
-            _speechRecognitionEngine.SetInputToAudioStream(_speechRecognitionStream, speechAudioFormatInfo);
-            _speechRecognitionEngine.RecognizeAsync(RecognizeMode.Multiple);
+            // Else, Speech Recognition will start when AudioVideoFlow state becomes active
         }
 
         public void StopSpeechRecognition()
         {
+            if (!_isActive)
+            {
+                Console.WriteLine("Warn: StopSpeechRecognition() called on an inactive SpeechRecognizer.");
+                return;
+            }
+
             _isActive = false;
 
-            if (_speechRecognitionEngine != null)
+            if (_isRecognizing)
             {
-                _speechRecognitionEngine.RecognizeAsyncCancel();
-            }
+                _isRecognizing = false;
+                if (_speechRecognitionEngine != null)
+                {
+                    _speechRecognitionEngine.RecognizeAsyncCancel();
+                }
 
-            if (_speechRecognitionConnector != null)
-            {
-                //Stop the connector
-                _speechRecognitionConnector.Stop();
+                if (_speechRecognitionConnector != null)
+                {
+                    // Stop the connector
+                    _speechRecognitionConnector.Stop();
 
-                //speech recognition connector must be detached from the flow, otherwise if the connector is rooted, it will keep the flow in memory.
-                _speechRecognitionConnector.DetachFlow();
-            }
+                    // speech recognition connector must be detached from the flow, otherwise if the connector is rooted, it will keep the flow in memory.
+                    _speechRecognitionConnector.DetachFlow();
+                }
 
-            if (_speechRecognitionStream != null)
-            {
-                _speechRecognitionStream.Dispose();
-                _speechRecognitionStream = null;
+                if (_speechRecognitionStream != null)
+                {
+                    _speechRecognitionStream.Dispose();
+                    _speechRecognitionStream = null;
+                }
             }
 
             if ((_audioVideoFlow != null) && (_audioVideoFlow.SpeechRecognitionConnector != null))
@@ -133,45 +146,43 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
                 _audioVideoFlow.SpeechRecognitionConnector.Stop();
                 _audioVideoFlow.SpeechRecognitionConnector.DetachFlow();
                 _audioVideoFlow.StateChanged -= AudioVideoFlow_StateChanged;
+                _audioVideoFlow = null;
             }
+
+            _waitForAudioVideoFlowStateChangedToActiveCompleted.Reset();
         }
 
         public void Shutdown()
         {
-            _isActive = false;
+            if (_isActive)
+            {
+                StopSpeechRecognition();
+            }
 
             if (_speechRecognitionEngine != null)
             {
-                _speechRecognitionEngine.RecognizeAsyncCancel();
                 _speechRecognitionEngine.UnloadAllGrammars();
+                _grammars.Clear();
                 _pendingLoadSpeechGrammarCounter = 0;
-                _speechRecognitionEngine.SpeechDetected -= new EventHandler<SpeechDetectedEventArgs>(SpeechRecognitionEngine_SpeechDetected);
-                _speechRecognitionEngine.RecognizeCompleted -= new EventHandler<RecognizeCompletedEventArgs>(SpeechRecognitionEngine_RecognizeCompleted);
-                _speechRecognitionEngine.LoadGrammarCompleted -= new EventHandler<LoadGrammarCompletedEventArgs>(SpeechRecognitionEngine_LoadGrammarCompleted);
+                
+                _speechRecognitionEngine.SpeechDetected -= (SpeechRecognitionEngine_SpeechDetected);
+                _speechRecognitionEngine.RecognizeCompleted -= (SpeechRecognitionEngine_RecognizeCompleted);
+                _speechRecognitionEngine.LoadGrammarCompleted -= (SpeechRecognitionEngine_LoadGrammarCompleted);
             }
 
             if (_speechRecognitionConnector != null)
             {
-                //Stop the connector
-                _speechRecognitionConnector.Stop();
-
-                //speech recognition connector must be detached from the flow, otherwise if the connector is rooted, it will keep the flow in memory.
-                _speechRecognitionConnector.DetachFlow();
+                _speechRecognitionConnector.Dispose();
+                _speechRecognitionConnector = null;
             }
 
-            if (_speechRecognitionStream != null)
-            {
-                _speechRecognitionStream.Dispose();
-                _speechRecognitionStream = null;
-            }
-
-            if (_audioVideoFlow != null && _audioVideoFlow.SpeechRecognitionConnector != null)
-            {
-                _audioVideoFlow.SpeechRecognitionConnector.Stop();
-                _audioVideoFlow.SpeechRecognitionConnector.DetachFlow();
-                _audioVideoFlow.StateChanged -= AudioVideoFlow_StateChanged;
-            }
+            _speechTranscript.Clear();
+            _transcriptRecorder = null;
         }
+
+        #endregion // Public Methods
+
+        #region Event Handlers
 
         // Callback that handles when the state of an AudioVideoFlow changes
         private void AudioVideoFlow_StateChanged(object sender, MediaFlowStateChangedEventArgs e)
@@ -184,10 +195,10 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
                 // Flow-related media operations normally begin here.
                 _waitForAudioVideoFlowStateChangedToActiveCompleted.Set();
             }
-            if (e.State == MediaFlowState.Terminated)
+            else if (e.State == MediaFlowState.Terminated)
             {
                 // Detach SpeechSynthesisConnector since AVFlow will not work anymore
-                _audioVideoFlow.SpeechRecognitionConnector.DetachFlow();
+                this.StopSpeechRecognition();
             }
         }
 
@@ -195,6 +206,11 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
 
         void SpeechRecognitionEngine_LoadGrammarCompleted(object sender, LoadGrammarCompletedEventArgs e)
         {
+            if (e.Error != null)
+            {
+                Console.WriteLine("Error: SpeechRecognizer receieved error from LoadGrammar(): " + e.ToString());
+            }
+
             _pendingLoadSpeechGrammarCounter--;
             Console.WriteLine("SpeechRecognitionEngine load grammar completed. Pending grammar loads remaining: " + _pendingLoadSpeechGrammarCounter);
 
@@ -222,27 +238,31 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
                 messageText = result.Text;
 
             }
-            else
+            else if (e.Error != null)
             {
-                if (e.Error != null)
-                {
                     messageText = e.Error.ToString();
                     messageModality = MessageModality.Error;
                     Console.WriteLine("Error occured during speech detection: " + e.Error.ToString());
-                }
-
+            }
+            else
+            {
                 Console.WriteLine("Failed to recognize speech.");
             }
 
-            Conversation conv = _audioVideoFlow.Call.Conversation;
-            ConversationParticipant speaker = _audioVideoFlow.Call.RemoteEndpoint.Participant;
-            Message m = new Message(messageText, speaker.Uri, speaker.DisplayName, DateTime.Now, conv.Id,
-                conv.ConferenceSession.ConferenceUri, messageModality, MessageDirection.Outgoing);
+            if (!String.IsNullOrEmpty(messageText))
+            {
+                Conversation conv = _audioVideoFlow.Call.Conversation;
+                ConversationParticipant speaker = _audioVideoFlow.Call.RemoteEndpoint.Participant;
+                Message m = new Message(messageText, speaker.Uri, speaker.DisplayName, DateTime.Now, conv.Id,
+                    conv.ConferenceSession.ConferenceUri, messageModality, MessageDirection.Outgoing);
 
-            this._transcriptRecorder.AddMessage(m);
+                this._transcriptRecorder.AddMessage(m);
+            }
         }
 
         #endregion // Speech Event Handlers
+
+        #endregion // Event Handlers
 
         #region Private Helper Methods
 
@@ -280,7 +300,19 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             }
         }
 
+        private void StartSpeechRecognition()
+        {
+            if (_isActive && !_isRecognizing)
+            {
+                _isRecognizing = true;
+                _waitForLoadGrammarCompleted.WaitOne();
+                _speechRecognitionConnector.AttachFlow(_audioVideoFlow);
+                _speechRecognitionStream = _speechRecognitionConnector.Start();
+                _speechRecognitionEngine.SetInputToAudioStream(_speechRecognitionStream, speechAudioFormatInfo);
+                _speechRecognitionEngine.RecognizeAsync(RecognizeMode.Multiple);
+            }
+        }
+
         #endregion // Private Helper Methods
     }
-
 }

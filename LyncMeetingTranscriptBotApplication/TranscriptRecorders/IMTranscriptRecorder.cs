@@ -61,8 +61,11 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             if (_instantMessagingCall != null)
             {
                 _instantMessagingCall.BeginTerminate(CallTerminated, _instantMessagingCall);
-                _waitForIMCallTerminated.WaitOne();
+                _instantMessagingCall = null;
             }
+
+            _waitForIMCallAccepted.Reset();
+            _waitForIMFlowStateChangedToActiveCompleted.Reset();
         }
 
         public override void Shutdown()
@@ -74,6 +77,12 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
 
         public void On_InstantMessagingCall_Received(CallReceivedEventArgs<InstantMessagingCall> e)
         {
+            if (_instantMessagingCall != null)
+            {
+                Console.WriteLine("Warn: IMCall already exists for this Conversation. Shutting down previous call...");
+                TerminateCall();
+            }
+
             // Type checking was done by the platform; no risk of this being any 
             // type other than the type expected.
             _instantMessagingCall = e.Call;
@@ -90,8 +99,9 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             // conversation. Toast is the message set by the caller as the 
             // 'greet' message for this call. In Microsoft Lync, the 
             // toast will show up in the lower-right of the screen.
-            Console.WriteLine("Call Received! From: " + e.RemoteParticipant.Uri + " Toast is: " +
+            Console.WriteLine("IMCall Received! From: " + e.RemoteParticipant.Uri + " Toast is: " +
                                                 e.ToastMessage.Message);
+            // Console.Writelin("IMCall Received!");
 
             // Now, accept the call. EndAcceptCall will be raised on the 
             // same thread.
@@ -107,6 +117,11 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
                 " and Remote Participant: " + call.RemoteEndpoint.Participant +
                 " has changed state. The previous call state was: " + e.PreviousState +
                 " and the current state is: " + e.State);
+
+            if (e.State == CallState.Terminated)
+            {
+                this.TerminateCall();
+            }
 
             // call top level event handler
             if (_imCallStateChangedEventHandler != null)
@@ -150,10 +165,6 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             {
                 // When flow is active, media operations can begin
                 _waitForIMFlowStateChangedToActiveCompleted.Set();
-
-                // Send the message on the InstantMessagingFlow.
-                //_instantMessagingFlow.BeginSendInstantMessage(_messageToSend, SendMessageCompleted,
-                //    _instantMessagingFlow);
             }
 
             // call top level event handler
@@ -173,34 +184,6 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
                 MessageModality.InstantMessage, MessageDirection.Outgoing);
 
             this._transcriptRecorder.AddMessage(m);
-
-            /*
-            // Shutdown if the far end tells us to.
-            if (e.TextBody.Equals("bye", StringComparison.OrdinalIgnoreCase))
-            {
-                // Shutting down the platform will terminate all attached objects.
-                // If this was a production application, it would tear down the 
-                // Call/Conversation, rather than terminating the entire platform.
-                _instantMessagingFlow.BeginSendInstantMessage("Shutting Down...", SendMessageCompleted,
-                    _instantMessagingFlow);
-                _helper.ShutdownPlatform();
-                _waitForSendMessageCompleted.Set();
-            }
-            else
-            {
-                // Echo the instant message back to the far end (the sender of 
-                // the instant message).
-                // Change the composing state of the local end user while sending messages to the far end.
-                // A delay is introduced purposely to demonstrate the typing notification displayed by the 
-                // far end client; otherwise the notification will not last long enough to notice.
-                _instantMessagingFlow.LocalComposingState = ComposingState.Composing;
-                Thread.Sleep(2000);
-
-                //Echo the message with an "Echo" prefix.
-                _instantMessagingFlow.BeginSendInstantMessage("Echo: " + e.TextBody, SendMessageCompleted,
-                    _instantMessagingFlow);
-            }
-            */
 
             // call top level event handler
             if (_imFlowMessageReceivedEventHandler != null)
