@@ -10,10 +10,18 @@ using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Shapes;
 
-namespace LyncMeetingTranscriptClientApp
+using LyncMeetingTranscriptClientApplication.ViewModel;
+
+namespace LyncMeetingTranscriptClientApplication
 {
     public partial class App : Application
     {
+        private static MainViewModel _viewModel;
+
+        public static MainViewModel MainViewModel
+        {
+            get { return _viewModel; }
+        }
 
         public App()
         {
@@ -26,6 +34,11 @@ namespace LyncMeetingTranscriptClientApp
 
         private void Application_Startup(object sender, StartupEventArgs e)
         {
+            //creates the main view model
+            _viewModel = new MainViewModel();
+            MainPage mainPage = new MainPage();
+            mainPage.DataContext = _viewModel;
+
             this.RootVisual = new MainPage();
         }
 

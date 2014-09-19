@@ -20,7 +20,7 @@
     <IISExpressAnonymousAuthentication />
     <IISExpressWindowsAuthentication />
     <IISExpressUseClassicPipelineMode />
-    <SilverlightApplicationList>{48F0F90B-BBE6-486F-902E-4E6072F19E39}|..\LyncMeetingTranscriptClientApp\LyncMeetingTranscriptClientApp.csproj|ClientBin|False</SilverlightApplicationList>
+    <SilverlightApplicationList>{5C25BCB7-4DF6-4746-8B71-740ED37AB47F}|..\LyncMeetingTranscriptClientApplication\LyncSilverlightApplication\LyncSilverlightApplication.csproj|ClientBin|False</SilverlightApplicationList>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -61,8 +61,11 @@
   </ItemGroup>
   <ItemGroup>
     <Content Include="ClientBin\LyncMeetingTranscriptClientApp.xap" />
+    <Content Include="ClientBin\LyncSilverlightApplication.xap" />
     <Content Include="LyncMeetingTranscriptClientAppTestPage.aspx" />
     <Content Include="LyncMeetingTranscriptClientAppTestPage.html" />
+    <Content Include="LyncSilverlightApplicationTestPage.aspx" />
+    <Content Include="LyncSilverlightApplicationTestPage.html" />
     <Content Include="Service1.svc" />
     <Content Include="Silverlight.js" />
     <Content Include="Web.config" />
