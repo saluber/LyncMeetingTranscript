@@ -33,16 +33,29 @@
   </PropertyGroup>
   <ItemGroup>
     <None Include="App.config" />
+    <None Include="Resources\de-DE.grxml" />
+    <None Include="Resources\en-GB.grxml" />
+    <None Include="Resources\en-US.grxml" />
+    <None Include="Resources\es-MX.grxml" />
+    <None Include="Resources\fr-CA.grxml" />
+    <None Include="Resources\fr-FR.grxml" />
+    <None Include="Resources\ja-JP.grxml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Constants.cs" />
     <Compile Include="MeetingTranscriptSession.cs" />
     <Compile Include="Program.cs" />
+    <Compile Include="TranscriptRecorders\AVTranscriptRecorder.cs" />
+    <Compile Include="TranscriptRecorders\IMTranscriptRecorder.cs" />
+    <Compile Include="TranscriptRecorders\Message.cs" />
+    <Compile Include="TranscriptRecorders\SpeechRecognizer.cs" />
+    <Compile Include="TranscriptRecorders\TranscriptRecorder.cs" />
     <Compile Include="UcmaCommon\UcmaHelper.cs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="Microsoft.Rtc.Collaboration, Version=5.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\..\..\..\..\..\Program Files\Microsoft UCMA 4.0\SDK\Core\Bin\Microsoft.Rtc.Collaboration.dll</HintPath>
+      <HintPath>E:\enlistments\lcsmp\mp\test\server\store\Functional\ACP\ACPModuleStressWarSaw\ExternalLib\Microsoft.Rtc.Collaboration.dll</HintPath>
     </Reference>
     <Reference Include="Microsoft.Rtc.Collaboration.AudioVideo.VoiceXml, Version=4.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
@@ -58,6 +71,12 @@
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Configuration" />
+    <Reference Include="System.XML" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="Resources\Greeting.xml" />
+    <Content Include="Resources\music.wma" />
+    <Content Include="Resources\tone.wav" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

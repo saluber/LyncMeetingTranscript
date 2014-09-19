@@ -1,0 +1,2710 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!--
+****************************************************************
+** Copyright (c) Microsoft Corporation. All rights reserved. **
+****************************************************************
+The example phone numbers, social security numbers, and credit card numbers depicted
+in the examples herein are fictitious. No association with any real company, organization,
+product, domain name, email address, logo, person, places, or events is intended or should be
+inferred.
+-->
+<grammar xml:lang="de-DE" version="1.0" mode="voice" xmlns="http://www.w3.org/2001/06/grammar" xmlns:sapi="http://schemas.microsoft.com/Speech/2002/06/SRGSExtensions" tag-format="semantics/1.0">
+<tag><![CDATA[
+    function FutureMonth(day) {
+		var thisDate = new Date();
+		var thisMonth = thisDate.getMonth() + 1;
+	
+		thisMonth = (day < thisDate.getDate()) ? thisMonth + 1 : thisMonth;
+		thisMonth = (thisMonth < 13) ? thisMonth : 1;
+	 
+		return thisMonth;
+	}
+	
+	function PastMonth(day) {
+		var thisDate = new Date();
+		var thisMonth = thisDate.getMonth() + 1;
+		
+		thisMonth = (day > thisDate.getDate()) ? thisMonth - 1 : thisMonth;
+		thisMonth = (thisMonth > 1) ? thisMonth : 12;
+		
+		return thisMonth;
+	}
+	
+	function FutureYear(month, day) {
+		var thisDate = new Date();
+		var thisMonth = thisDate.getMonth() + 1;
+		var thisDay = thisDate.getDay() + 1;
+		var thisYear = thisDate.getFullYear();
+		
+		thisYear = ((month > thisMonth) || (month == thisMonth && day >= thisDay)) ? thisYear : thisYear + 1;
+		
+		return thisYear;
+	}
+	
+	function PastYear(month, day) {
+		var thisDate = new Date();
+		var thisMonth = thisDate.getMonth() + 1;
+		var thisDay = thisDate.getDay() + 1;
+		var thisYear = thisDate.getFullYear();
+		
+		thisYear = ((month < thisMonth) || (month == thisMonth && day <= thisDay)) ? thisYear : thisYear - 1;
+		
+		return thisYear;
+	}
+	
+	function IsValidDate(month, day, year) {
+		var oDate = new Date();
+		var retVal = "true";
+		
+		if ((year < 1900) || (year > 2099))
+		{
+		retVal = "false";
+		}
+		
+		oDate.setFullYear(year); 
+		oDate.setDate(1);
+		oDate.setMonth(month - 1);
+		oDate.setDate(day);
+		
+		if (day != oDate.getDate())
+		retVal = "false";
+		
+		return retVal;
+	}
+	
+	function GetDateFromOffset(offset) {
+		var thisDate = new Date();
+		var newDate = new Date(thisDate.valueOf() + (offset * 60 * 60 * 24 * 1000) );
+		return newDate;
+	}
+	
+	function GetOffsetFromWeekday(weekday, weekOffset) {
+		var oToday=new Date();
+		var todayOfWeek = oToday.getDay() + 1;
+		if (weekOffset=="next") {
+			if (weekday >= todayOfWeek) { 
+				return (weekday - todayOfWeek); 
+			}
+			else { 
+				return 7 - (todayOfWeek - weekday); 
+			}
+		} 
+		else if (weekOffset=="previous") {
+			if (weekday < todayOfWeek) { 
+				return (weekday - todayOfWeek); 
+			}
+			else { 
+				return ((weekday - todayOfWeek) - 7); 
+			}
+		} 
+		else return 0;
+	}
+	
+	// only allows hours between 1 and 12
+	// if ampm is empty then the time is calculated to be am if hour is greater than 7 and pm otherwise
+	// returns a value between 0 and 23
+	function Hour24(hour, ampm) {
+		var retVal = hour;
+		
+		if ((hour > 12) || (hour < 0))
+			return retVal;
+		
+		if (ampm == "AM")
+		{
+			if (hour == 12)
+				retVal = 0;
+		}
+		else if (ampm == "PM")
+		{
+			if (hour < 12)
+				retVal = hour + 12;
+			}
+		else
+		{
+			if (hour < 7)
+				retVal = hour + 12;
+		}
+		
+		return retVal;
+	}
+	
+	// only allows hours between 1 and 12
+	// returns a value between 0 and 23
+	function AlternateHour24(hour) {
+		var retVal = hour;
+		
+		if ((hour > 12) || (hour < 0))
+			return retVal;
+		
+		if (hour == 12)
+			retVal = 0;
+		
+		else if (hour > 6)
+			retVal = hour + 12;
+		
+		return retVal;
+	}
+	
+	
+	// only allows offsets between -59 and +59
+	function NormalizeHour(hour, offset) {
+		var retVal = hour;
+		
+		if (Math.abs(offset) > 59)
+			return hour;
+		
+		if ((hour > 23) || (hour < 0))
+			return hour;
+		
+		retVal = (offset < 0) ? retVal - 1 : retVal;
+		retVal = (retVal < 0) ? 23 : retVal;
+		return retVal;
+	}
+	
+	
+	// only allows offsets between -59 and +59
+	function NormalizeMinute(offset) {
+		var retVal = 0;
+		
+		if (Math.abs(offset) > 59)
+			return 0;
+		
+		retVal = (offset < 0) ? 60 + offset: offset;
+		return retVal;
+	}
+ ]]></tag>
+
+  <!--
+  Category: Confirmation
+  Description: Confirmation rules provide access to simple dialog confirmation sets. These include Yes, No and Cancel
+    subclasses. The responses are generic and are independent of the prompt used to solicit the response
+  -->
+  <!-- $Confirmation__value: string ["Yes", "No", "Cancel"] -->
+  <rule id="Confirmation" scope="public">
+    <example> ja </example>
+    <example> nein </example>
+    <example> abbrechen </example>
+    <one-of>
+      <item>
+        <ruleref uri="#Confirmation_Yes" />
+      </item>
+      <item>
+        <ruleref uri="#Confirmation_No" />
+      </item>
+      <item>
+        <ruleref uri="#Confirmation_Cancel" />
+      </item>
+    </one-of>
+    <tag> out = rules.latest(); </tag>
+  </rule>
+  <!-- $Confirmation_YesNo._value: string ["Yes", "No"] -->
+  <rule id="Confirmation_YesNo" scope="public">
+    <example> ja </example>
+    <example> nein </example>
+    <one-of>
+      <item>
+        <ruleref uri="#Confirmation_Yes" />
+      </item>
+      <item>
+        <ruleref uri="#Confirmation_No" />
+      </item>
+    </one-of>
+    <tag> out = rules.latest() </tag>
+  </rule>
+  <!-- $Confirmation_Yes._value: string ["Yes"] -->
+  <rule id="Confirmation_Yes" scope="public">
+    <example> ja </example>
+    <example> okay </example>
+    <one-of>
+      <item>
+                ja <item repeat="0-1">bitte</item></item>
+      <item> okay </item>
+    </one-of>
+    <tag> out._value = "Yes"; </tag>
+  </rule>
+  <!-- $Confirmation_No._value: string ["No"] -->
+  <rule id="Confirmation_No" scope="public">
+    <example> nein </example>
+    <example> nö </example>
+    <one-of>
+      <item> nein </item>
+      <item> nee </item>
+      <item> nö </item>
+    </one-of>
+    <tag> out._value = "No"; </tag>
+  </rule>
+  <!-- $Confirmation_Cancel._value: string ["Cancel"] -->
+  <rule id="Confirmation_Cancel" scope="public">
+    <example> abbrechen </example>
+    <example> stop </example>
+    <example> zurück </example>
+    <one-of>
+      <item> abbrechen </item>
+      <item> stop </item>
+      <item> zurück </item>
+    </one-of>
+    <tag> out._value = "Cancel"; </tag>
+  </rule>
+  <!--
+  Category: Cardinal
+  Description: Cardinal rules describe numeric values on the range of zero to 1 million. The numeric range is encoded in
+    the rule name. For example, Cardinal_1_to_9 will contain numbers on the range of 1...9 (i.e. "ein", "zwei", ..., "neun").
+    The <Cardinal> rule covers the full range.
+    All return an integer _value semantic item.
+  -->
+  <!-- $Cardinal._value: integer [0...1,000,000] -->
+  <rule id="Cardinal" scope="public">
+    <example> ein tausend ein hundert drei und zwanzig </example>
+    <one-of>
+      <item>
+                null <tag> out._value = 0; </tag></item>
+      <item>
+        <ruleref uri="#Cardinal_1_to_999" />
+        <tag> out = rules.latest(); </tag>
+      </item>
+      <item>
+        <ruleref uri="#Cardinal_1000_to_999999" />
+        <tag> out = rules.latest(); </tag>
+      </item>
+      <item>
+        <item repeat="0-1"> eine </item> Million <tag> out._value = 1000000; </tag></item>
+    </one-of>
+  </rule>
+  <!-- $Cardinal_0._value: integer [0] -->
+  <rule id="Cardinal_0" scope="public">
+    <example> null </example>
+        null <tag> out._value = 0; </tag></rule>
+  <!-- $Cardinal_0_to_9._value: integer [0...9] -->
+  <rule id="Cardinal_0_to_9" scope="public">
+    <example> sechs </example>
+    <example> zwei </example>
+    <example> vier </example>
+    <one-of>
+      <item>
+                null <tag> out._value = 0; </tag></item>
+      <item>
+        <ruleref uri="#Cardinal_1_to_9" />
+        <tag> out = rules.latest(); </tag>
+      </item>
+    </one-of>
+  </rule>
+  <!-- $Cardinal_0_to_10._value: integer [0...10] -->
+  <rule id="Cardinal_0_to_10" scope="public">
+    <example> sechs </example>
+    <example> zwei </example>
+    <example> zehn </example>
+    <one-of>
+      <item>
+        <ruleref uri="#Cardinal_0_to_9" />
+        <tag> out._value = rules.latest()._value; </tag>
+      </item>
+      <item>
+                zehn <tag> out._value = 10; </tag></item>
+    </one-of>
+  </rule>
+  <!-- $Cardinal_0_to_100._value: integer [0...100] -->
+  <rule id="Cardinal_0_to_100" scope="public">
+    <example> zwei und neunzig </example>
+    <example> siebzehn </example>
+    <example> elf </example>
+    <one-of>
+      <item>
+                null <tag> out._value = 0; </tag></item>
+      <item>
+        <ruleref uri="#Cardinal_1_to_99" />
+        <tag> out = rules.latest(); </tag>
+      </item>
+      <item>
+        <item repeat="0-1"> ein </item> hundert <tag> out._value = 100; </tag></item>
+    </one-of>
+  </rule>
+  <!-- $Cardinal_0_to_1000._value: integer [0...1000] -->
+  <rule id="Cardinal_0_to_1000" scope="public">
+    <example> zwei und neunzig </example>
+    <example> siebzehn </example>
+    <example> fünf hundert sechs und vierzig </example>
+    <one-of>
+      <item>
+                null <tag> out._value = 0; </tag></item>
+      <item>
+        <ruleref uri="#Cardinal_1_to_999" />
+        <tag> out._value = rules.latest()._value; </tag>
+      </item>
+      <item>
+        <item repeat="0-1"> ein </item> tausend <tag> out._value = 1000; </tag></item>
+    </one-of>
+  </rule>
+  <!-- $Cardinal_0_to_1000._value: integer [0...10000] -->
+  <rule id="Cardinal_0_to_10000" scope="public">
+    <example> zwei und neunzig </example>
+    <example> siebzehn </example>
+    <example> fünf hundert sechs und vierzig </example>
+    <one-of>
+      <item>
+                null <tag> out._value = 0; </tag></item>
+      <item>
+        <ruleref uri="#Cardinal_1_to_9999" />
+        <tag> out._value = rules.latest()._value; </tag>
+      </item>
+      <item>
+                zehn tausend <tag> out._value = 10000; </tag></item>
+    </one-of>
+  </rule>
+  <!-- $Cardinal_1_to_9._value: integer [1...9] -->
+  <rule id="Cardinal_1_to_9" scope="public">
+    <example> neun </example>
+    <example> vier </example>
+    <example> acht </example>
+    <one-of>
+      <item>
+                eins <tag> out._value = 1; </tag></item>
+      <item>
+        <ruleref uri="#Cardinal_2_to_9" />
+        <tag> out = rules.latest(); </tag>
+      </item>
+    </one-of>
+  </rule>
+  <!-- $Cardinal_1_to_99._value: integer [1...99] -->
+  <rule id="Cardinal_1_to_99" scope="public">
+    <example> neun </example>
+    <example> vier </example>
+    <example> acht </example>
+    <one-of>
+      <item>
+        <ruleref uri="#Cardinal_1_to_9" />
+        <tag> out = rules.latest(); </tag>
+      </item>
+      <item>
+        <ruleref uri="#Cardinal_10_to_19" />
+        <tag> out = rules.latest(); </tag>
+      </item>
+      <item>
+        <ruleref uri="#Cardinal_20_to_99" />
+        <tag> out = rules.latest(); </tag>
+      </item>
+    </one-of>
+  </rule>
+  <!-- $Cardinal_1_to_999._value: integer [1...999] -->
+  <rule id="Cardinal_1_to_999" scope="public">
+    <example> neun </example>
+    <example> vier </example>
+    <example> acht </example>
+    <one-of>
+      <item>
+        <ruleref uri="#Cardinal_1_to_99" />
+        <tag> out._value = rules.latest()._value; </tag>
+      </item>
+      <item>
+        <ruleref uri="#Cardinal_100_to_999" />
+        <tag> out._value = rules.latest()._value; </tag>
+      </item>
+    </one-of>
+  </rule>
+  <!-- $Cardinal_2_to_999._value: integer [2...999] -->
+  <rule id="Cardinal_2_to_999" scope="public">
+    <example> neun </example>
+    <example> vier </example>
+    <example> acht </example>
+    <one-of>
+      <item>
+        <ruleref uri="#Cardinal_2_to_99" />
+        <tag> out._value = rules.latest()._value; </tag>
+      </item>
+      <item>
+        <ruleref uri="#Cardinal_100_to_999" />
+        <tag> out._value = rules.latest()._value; </tag>
+      </item>
+    </one-of>
+  </rule>
+  <!-- $Cardinal_1_to_9999._value: integer [1...9999] -->
+  <rule id="Cardinal_1_to_9999" scope="public">
+    <example> neun </example>
+    <example> vier </example>
+    <example> acht </example>
+    <tag> out._value = 0; </tag>
+    <item repeat="0-1">
+      <one-of>
+        <item>
+          <item repeat="0-1">ein</item>
+                    tausend
+                    <item repeat="0-1">und</item><tag> out._value = 1000; </tag></item>
+        <item>
+          <ruleref uri="#Cardinal_2_to_9" />
+          <tag> out._value = rules.latest()._value; </tag>
+                    tausend
+                    <item repeat="0-1"> und </item><tag> out._value = out._value * 1000; </tag></item>
+      </one-of>
+    </item>
+    <ruleref uri="#Cardinal_1_to_999" />
+    <tag> out._value = out._value + rules.latest()._value; </tag>
+  </rule>
+  <!-- $Cardinal_2_to_9._value: integer [2...9] -->
+  <rule id="Cardinal_2_to_9" scope="public">
+    <example> fünf </example>
+    <example> vier </example>
+    <example> acht </example>
+    <one-of>
+      <item>
+                zwei <tag> out._value = 2; </tag></item>
+      <item>
+                zwo <tag> out._value = 2; </tag></item>
+      <item>
+                drei <tag> out._value = 3; </tag></item>
+      <item>
+                vier <tag> out._value = 4; </tag></item>
+      <item>
+                fünf <tag> out._value = 5; </tag></item>
+      <item>
+                sechs <tag> out._value = 6; </tag></item>
+      <item>
+                sieben <tag> out._value = 7; </tag></item>
+      <item>
+                acht <tag> out._value = 8; </tag></item>
+      <item>
+                neun <tag> out._value = 9; </tag></item>
+    </one-of>
+  </rule>
+  <!-- $Cardinal_2_to_99._value: integer [2...99] -->
+  <rule id="Cardinal_2_to_99" scope="public">
+    <example> neun </example>
+    <example> siebzehn </example>
+    <example> elf </example>
+    <one-of>
+      <item>
+        <ruleref uri="#Cardinal_2_to_9" />
+      </item>
+      <item>
+        <ruleref uri="#Cardinal_10_to_19" />
+      </item>
+      <item>
+        <ruleref uri="#Cardinal_20_to_99" />
+      </item>
+    </one-of>
+    <tag> out._value = rules.latest()._value; </tag>
+  </rule>
+  <!-- $Cardinal_10_to_19._value: integer [10...19] -->
+  <rule id="Cardinal_10_to_19" scope="public">
+    <example> neunzehn </example>
+    <example> vierzehn </example>
+    <example> siebzehn </example>
+    <one-of>
+      <item>
+                zehn <tag> out._value = 10; </tag></item>
+      <item>
+                elf <tag> out._value = 11; </tag></item>
+      <item>
+                zwölf <tag> out._value = 12; </tag></item>
+      <item>
+                dreizehn <tag> out._value = 13; </tag></item>
+      <item>
+                vierzehn <tag> out._value = 14; </tag></item>
+      <item>
+                fünfzehn <tag> out._value = 15; </tag></item>
+      <item>
+                sechzehn <tag> out._value = 16; </tag></item>
+      <item>
+                siebzehn <tag> out._value = 17; </tag></item>
+      <item>
+                achtzehn <tag> out._value = 18; </tag></item>
+      <item>
+                neunzehn <tag> out._value = 19; </tag></item>
+    </one-of>
+  </rule>
+  <!-- $Cardinal_20_to_99._value: integer [20...29] -->
+  <rule id="Cardinal_20_to_99" scope="public">
+    <example> zwanzig </example>
+    <example> drei und zwanzig </example>
+    <tag> out._value = 0; </tag>
+    <item repeat="0-1">
+      <one-of>
+        <item>
+                    ein
+                    <tag> out._value = 1; </tag></item>
+        <item>
+          <ruleref uri="#Cardinal_2_to_9" />
+          <tag> out._value = rules.latest()._value; </tag>
+        </item>
+      </one-of>
+            und
+        </item>
+    <one-of>
+      <item>
+                zwanzig <tag> out._value = 20 + out._value; </tag></item>
+      <item>
+                dreißig <tag> out._value = 30 + out._value; </tag></item>
+      <item>
+                vierzig <tag> out._value = 40 + out._value; </tag></item>
+      <item>
+                fünfzig <tag> out._value = 50 + out._value; </tag></item>
+      <item>
+                sechzig <tag> out._value = 60 + out._value; </tag></item>
+      <item>
+                siebzig <tag> out._value = 70 + out._value; </tag></item>
+      <item>
+                achtzig <tag> out._value = 80 + out._value; </tag></item>
+      <item>
+                neunzig <tag> out._value = 90 + out._value; </tag></item>
+    </one-of>
+  </rule>
+  <!-- $Cardinal_10_to_99._value: integer [10...99] -->
+  <rule id="Cardinal_10_to_99" scope="public">
+    <example> vierzehn </example>
+    <example> drei und achtzig </example>
+    <example> zwölf </example>
+    <one-of>
+      <item>
+        <ruleref uri="#Cardinal_10_to_19" />
+        <tag> out._value = rules.latest()._value; </tag>
+      </item>
+      <item>
+        <ruleref uri="#Cardinal_20_to_99" />
+        <tag> out._value = rules.latest()._value; </tag>
+      </item>
+    </one-of>
+  </rule>
+  <!-- $Cardinal_100_to_999._value: integer [100...999] -->
+  <rule id="Cardinal_100_to_999" scope="public">
+    <example> zwei hundert sechzehn </example>
+    <example> acht hundert acht und achtzig  </example>
+    <example> neun hundert sechs und sechzig </example>
+    <tag> out._value = 0; </tag>
+    <one-of>
+      <item>
+                ein <tag> out._value = 1; </tag></item>
+      <item>
+        <ruleref uri="#Cardinal_2_to_9" />
+        <tag> out._value = rules.latest()._value; </tag>
+      </item>
+    </one-of>
+    <item> hundert </item>
+    <tag> out._value = out._value*100; </tag>
+    <item repeat="0-1">
+      <item repeat="0-1"> und </item>
+      <ruleref uri="#Cardinal_1_to_99" />
+      <tag> out._value = out._value + rules.latest()._value; </tag>
+    </item>
+  </rule>
+  <!-- $Cardinal_1000_to_999999._value: integer [1000...999999] -->
+  <rule id="Cardinal_1000_to_999999" scope="public">
+    <example> acht tausend und neun hundert sechs und sechzig </example>
+    <tag> out._value = 0; </tag>
+    <one-of>
+      <item>
+                ein <tag> out._value = 1; </tag></item>
+      <item>
+        <ruleref uri="#Cardinal_2_to_999" />
+        <tag> out._value = rules.latest()._value; </tag>
+      </item>
+    </one-of>
+    <item> tausend </item>
+    <tag> out._value = out._value*1000; </tag>
+    <item repeat="0-1">
+      <item repeat="0-1"> und </item>
+      <ruleref uri="#Cardinal_1_to_999" />
+      <tag> out._value = out._value + rules.latest()._value; </tag>
+    </item>
+  </rule>
+  <!--
+  Category: Ordinal
+  Description: Ordinal rules describe numeric ordering values on the range of 1 (erste) to 100 (hundertste).
+    The numeric range is encoded in the rule name. For example, Ordinal_1_to_9 will contain ordinals: erste, zweite, dritte, ..., neunte.
+    The <Ordinal> rule covers the full range.
+    All return an integer _value semantic item.
+  -->
+  <!-- $Ordinal._value: integer [1...100] -->
+  <rule id="Ordinal" scope="public">
+    <example> neun und dreißigster  </example>
+    <example> siebzehnte  </example>
+    <example> zwölften  </example>
+    <one-of>
+      <item>
+        <ruleref uri="#Ordinal_article" />
+      </item>
+      <item>
+        <ruleref uri="#Ordinal_male" />
+      </item>
+      <item>
+        <ruleref uri="#Ordinal_dativ" />
+      </item>
+    </one-of>
+    <tag> out = rules.latest(); </tag>
+  </rule>
+  <!-- $Ordinal_article._value: integer [1...100] -->
+  <rule id="Ordinal_article" scope="public">
+    <example> neun und dreißigste  </example>
+    <example> siebzehnte  </example>
+    <example> zwölfte  </example>
+    <one-of>
+      <item>
+        <ruleref uri="#Ordinal_1_to_9_article" />
+        <tag> out._value = rules.latest()._value; </tag>
+      </item>
+      <item>
+        <ruleref uri="#Ordinal_10_to_19_article" />
+        <tag> out._value = rules.latest()._value; </tag>
+      </item>
+      <item>
+        <ruleref uri="#Ordinal_20_to_99_article" />
+        <tag> out._value = rules.latest()._value; </tag>
+      </item>
+      <item>
+                hundertste <tag> out._value = 100; </tag></item>
+    </one-of>
+  </rule>
+  <!-- $Ordinal_male._value: integer [1...100] -->
+  <rule id="Ordinal_male" scope="public">
+    <example> neun und dreißigster  </example>
+    <example> siebzehnter  </example>
+    <example> zwölfter  </example>
+    <one-of>
+      <item>
+        <ruleref uri="#Ordinal_1_to_9_male" />
+        <tag> out._value = rules.latest()._value; </tag>
+      </item>
+      <item>
+        <ruleref uri="#Ordinal_10_to_19_male" />
+        <tag> out._value = rules.latest()._value; </tag>
+      </item>
+      <item>
+        <ruleref uri="#Ordinal_20_to_99_male" />
+        <tag> out._value = rules.latest()._value; </tag>
+      </item>
+      <item>
+                hundertster <tag> out._value = 100; </tag></item>
+    </one-of>
+  </rule>
+  <!-- $Ordinal_dativ._value: integer [1...100] -->
+  <rule id="Ordinal_dativ" scope="public">
+    <example> neun und dreißigsten  </example>
+    <example> siebzehnten  </example>
+    <example> zwölften  </example>
+    <one-of>
+      <item>
+        <ruleref uri="#Ordinal_1_to_9_dativ" />
+        <tag> out._value = rules.latest()._value; </tag>
+      </item>
+      <item>
+        <ruleref uri="#Ordinal_10_to_19_dativ" />
+        <tag> out._value = rules.latest()._value; </tag>
+      </item>
+      <item>
+        <ruleref uri="#Ordinal_20_to_99_dativ" />
+        <tag> out._value = rules.latest()._value; </tag>
+      </item>
+      <item>
+                hundertster <tag> out._value = 100; </tag></item>
+    </one-of>
+  </rule>
+  <!-- $Ordinal_1_to_9._value: integer [1...9] -->
+  <rule id="Ordinal_1_to_9_article" scope="public">
+    <example> dritte </example>
+    <example> siebte </example>
+    <one-of>
+      <item>
+                erste <tag> out._value = 1; </tag></item>
+      <item>
+                zweite <tag> out._value = 2; </tag></item>
+      <item>
+                zwote <tag> out._value = 2; </tag></item>
+      <item>
+                dritte <tag> out._value = 3; </tag></item>
+      <item>
+                vierte <tag> out._value = 4; </tag></item>
+      <item>
+                fünfte <tag> out._value = 5; </tag></item>
+      <item>
+                sechste <tag> out._value = 6; </tag></item>
+      <item>
+                siebte <tag> out._value = 7; </tag></item>
+      <item>
+                achte <tag> out._value = 8; </tag></item>
+      <item>
+                neunte <tag> out._value = 9; </tag></item>
+    </one-of>
+  </rule>
+  <!-- $Ordinal_1_to_9_male._value: integer [1...9] -->
+  <rule id="Ordinal_1_to_9_male" scope="public">
+    <example> dritter </example>
+    <example> achter </example>
+    <one-of>
+      <item>
+                erster <tag> out._value = 1; </tag></item>
+      <item>
+                zweiter <tag> out._value = 2; </tag></item>
+      <item>
+                zwoter <tag> out._value = 2; </tag></item>
+      <item>
+                dritter <tag> out._value = 3; </tag></item>
+      <item>
+                vierter <tag> out._value = 4; </tag></item>
+      <item>
+                fünfter <tag> out._value = 5; </tag></item>
+      <item>
+                sechster <tag> out._value = 6; </tag></item>
+      <item>
+                siebter <tag> out._value = 7; </tag></item>
+      <item>
+                achter <tag> out._value = 8; </tag></item>
+      <item>
+                neunter <tag> out._value = 9; </tag></item>
+    </one-of>
+  </rule>
+  <!-- $Ordinal_1_to_9_dativ._value: integer [1...9] -->
+  <rule id="Ordinal_1_to_9_dativ" scope="public">
+    <example> ersten </example>
+    <example> siebten </example>
+    <one-of>
+      <item>
+                ersten <tag> out._value = 1; </tag></item>
+      <item>
+                zweiten <tag> out._value = 2; </tag></item>
+      <item>
+                zwoten <tag> out._value = 2; </tag></item>
+      <item>
+                dritten <tag> out._value = 3; </tag></item>
+      <item>
+                vierten <tag> out._value = 4; </tag></item>
+      <item>
+                fünften <tag> out._value = 5; </tag></item>
+      <item>
+                sechsten <tag> out._value = 6; </tag></item>
+      <item>
+                siebten <tag> out._value = 7; </tag></item>
+      <item>
+                achten <tag> out._value = 8; </tag></item>
+      <item>
+                neunten <tag> out._value = 9; </tag></item>
+    </one-of>
+  </rule>
+  <!-- $Ordinal_1_to_12_article._value: integer [1...12] -->
+  <rule id="Ordinal_1_to_12_article" scope="public">
+    <example> dritte </example>
+    <example> siebte </example>
+    <one-of>
+      <item>
+        <ruleref uri="#Ordinal_1_to_9_article" />
+        <tag> out = rules.latest(); </tag>
+      </item>
+      <item>
+                zehnte <tag> out._value = 10; </tag></item>
+      <item>
+                elfte <tag> out._value = 11; </tag></item>
+      <item>
+                zwölfte <tag> out._value = 12; </tag></item>
+    </one-of>
+  </rule>
+  <!-- $Ordinal_1_to_12_male._value: integer [1...12] -->
+  <rule id="Ordinal_1_to_12_male" scope="public">
+    <example> dritter </example>
+    <example> achter </example>
+    <one-of>
+      <item>
+        <ruleref uri="#Ordinal_1_to_9_male" />
+        <tag> out = rules.latest(); </tag>
+      </item>
+      <item>
+                zehnter <tag> out._value = 10; </tag></item>
+      <item>
+                elfter <tag> out._value = 11; </tag></item>
+      <item>
+                zwölfter <tag> out._value = 12; </tag></item>
+    </one-of>
+  </rule>
+  <!-- $Ordinal_1_to_12_dativ._value: integer [1...12] -->
+  <rule id="Ordinal_1_to_12_dativ" scope="public">
+    <example> ersten </example>
+    <example> siebten </example>
+    <one-of>
+      <item>
+        <ruleref uri="#Ordinal_1_to_9_dativ" />
+        <tag> out._value = rules.latest()._value; </tag>
+      </item>
+      <item>
+                zehnten <tag> out._value = 10; </tag></item>
+      <item>
+                elften <tag> out._value = 11; </tag></item>
+      <item>
+                zwölften <tag> out._value = 12; </tag></item>
+    </one-of>
+  </rule>
+  <!-- $Ordinal_1_to_31_article._value: integer [1...31] -->
+  <rule id="Ordinal_1_to_31_article" scope="public">
+    <example> dritte </example>
+    <example> siebte </example>
+    <one-of>
+      <item>
+        <ruleref uri="#Ordinal_1_to_9_article" />
+        <tag> out._value = rules.latest()._value; </tag>
+      </item>
+      <item>
+        <ruleref uri="#Ordinal_10_to_19_article" />
+        <tag> out._value = rules.latest()._value; </tag>
+      </item>
+      <item>
+        <tag> out._value = 0; </tag>
+        <item repeat="0-1">
+          <one-of>
+            <item>
+                            ein
+                            <tag> out._value = 1; </tag></item>
+            <item>
+              <ruleref uri="#Cardinal_2_to_9" />
+              <tag> out._value = rules.latest()._value; </tag>
+            </item>
+          </one-of>
+                    und
+                </item>
+                zwanzigste <tag> out._value = 20 + out._value; </tag></item>
+      <item>
+                dreißigste <tag> out._value = 30; </tag></item>
+      <item>
+                ein und dreißigste <tag> out._value = 31; </tag></item>
+    </one-of>
+  </rule>
+  <!-- $Ordinal_1_to_31_male._value: integer [1...31] -->
+  <rule id="Ordinal_1_to_31_male" scope="public">
+    <example> dritter </example>
+    <example> siebter </example>
+    <one-of>
+      <item>
+        <ruleref uri="#Ordinal_1_to_9_male" />
+        <tag> out._value = rules.latest()._value; </tag>
+      </item>
+      <item>
+        <ruleref uri="#Ordinal_10_to_19_male" />
+        <tag> out._value = rules.latest()._value; </tag>
+      </item>
+      <item>
+        <tag> out._value = 0; </tag>
+        <item repeat="0-1">
+          <one-of>
+            <item>
+                            ein <tag> out._value = 1; </tag></item>
+            <item>
+              <ruleref uri="#Cardinal_2_to_9" />
+              <tag> out._value = rules.latest()._value; </tag>
+            </item>
+          </one-of>
+                    und
+                </item>
+                zwanzigster <tag> out._value = 20 + out._value; </tag></item>
+      <item>
+                dreißigster <tag> out._value = 30; </tag></item>
+      <item>
+                ein und dreißigster <tag> out._value = 31; </tag></item>
+    </one-of>
+  </rule>
+  <!-- $Ordinal_1_to_31_dativ._value: integer [1...31] -->
+  <rule id="Ordinal_1_to_31_dativ" scope="public">
+    <example> dritten </example>
+    <example> siebten </example>
+    <one-of>
+      <item>
+        <ruleref uri="#Ordinal_1_to_9_dativ" />
+        <tag> out._value = rules.latest()._value; </tag>
+      </item>
+      <item>
+        <ruleref uri="#Ordinal_10_to_19_dativ" />
+        <tag> out._value = rules.latest()._value; </tag>
+      </item>
+      <item>
+        <tag> out._value = 0; </tag>
+        <item repeat="0-1">
+          <one-of>
+            <item>
+                            ein <tag> out._value = 1; </tag></item>
+            <item>
+              <ruleref uri="#Cardinal_2_to_9" />
+              <tag> out._value = rules.latest()._value; </tag>
+            </item>
+          </one-of>
+                    und
+                </item>
+                zwanzigsten <tag> out._value = 20 + out._value; </tag></item>
+      <item>
+                dreißigsten <tag> out._value = 30; </tag></item>
+      <item>
+                ein und dreißigsten <tag> out._value = 31; </tag></item>
+    </one-of>
+  </rule>
+  <!-- $Ordinal_10_to_19_article._value: integer [10...19] -->
+  <rule id="Ordinal_10_to_19_article" scope="public">
+    <example> vierzehnte </example>
+    <example> neunzehnte </example>
+    <one-of>
+      <item>
+                zehnte <tag> out._value = 10; </tag></item>
+      <item>
+                elfte <tag> out._value = 11; </tag></item>
+      <item>
+                zwölfte <tag> out._value = 12; </tag></item>
+      <item>
+                dreizehnte <tag> out._value = 13; </tag></item>
+      <item>
+                vierzehnte <tag> out._value = 14; </tag></item>
+      <item>
+                fünfzehnte <tag> out._value = 15; </tag></item>
+      <item>
+                sechzehnte <tag> out._value = 16; </tag></item>
+      <item>
+                siebzehnte <tag> out._value = 17; </tag></item>
+      <item>
+                achtzehnte <tag> out._value = 18; </tag></item>
+      <item>
+                neunzehnte <tag> out._value = 19; </tag></item>
+    </one-of>
+  </rule>
+  <!-- $Ordinal_10_to_19_male._value: integer [10...19] -->
+  <rule id="Ordinal_10_to_19_male" scope="public">
+    <example> siebzehnter </example>
+    <example> dreizehnter </example>
+    <example> fünfzehnter </example>
+    <one-of>
+      <item>
+                zehnter <tag> out._value = 10; </tag></item>
+      <item>
+                elfter <tag> out._value = 11; </tag></item>
+      <item>
+                zwölfter <tag> out._value = 12; </tag></item>
+      <item>
+                dreizehnter <tag> out._value = 13; </tag></item>
+      <item>
+                vierzehnter <tag> out._value = 14; </tag></item>
+      <item>
+                fünfzehnter <tag> out._value = 15; </tag></item>
+      <item>
+                sechzehnter <tag> out._value = 16; </tag></item>
+      <item>
+                siebzehnter <tag> out._value = 17; </tag></item>
+      <item>
+                achtzehnter <tag> out._value = 18; </tag></item>
+      <item>
+                neunzehnter <tag> out._value = 19; </tag></item>
+    </one-of>
+  </rule>
+  <!-- $Ordinal_10_to_19_dativ._value: integer [10...19] -->
+  <rule id="Ordinal_10_to_19_dativ" scope="public">
+    <example> zwölften </example>
+    <example> fünfzehnten </example>
+    <example> siebzehnten </example>
+    <one-of>
+      <item>
+                zehnten <tag> out._value = 10; </tag></item>
+      <item>
+                elften <tag> out._value = 11; </tag></item>
+      <item>
+                zwölften <tag> out._value = 12; </tag></item>
+      <item>
+                dreizehnten <tag> out._value = 13; </tag></item>
+      <item>
+                vierzehnten <tag> out._value = 14; </tag></item>
+      <item>
+                fünfzehnten <tag> out._value = 15; </tag></item>
+      <item>
+                sechzehnten <tag> out._value = 16; </tag></item>
+      <item>
+                siebzehnten <tag> out._value = 17; </tag></item>
+      <item>
+                achtzehnten <tag> out._value = 18; </tag></item>
+      <item>
+                neunzehnten <tag> out._value = 19; </tag></item>
+    </one-of>
+  </rule>
+  <!-- $Ordinal_20_to_99._value: integer [20...29] -->
+  <rule id="Ordinal_20_to_99_article" scope="public">
+    <example> zwanzigste </example>
+    <example> ein und zwanzigste </example>
+    <tag> out._value = 0; </tag>
+    <item repeat="0-1">
+      <one-of>
+        <item>
+                    ein <tag> out._value = 1; </tag></item>
+        <item>
+          <ruleref uri="#Cardinal_2_to_9" />
+          <tag> out._value = rules.latest()._value; </tag>
+        </item>
+      </one-of>
+            und
+        </item>
+    <one-of>
+      <item>
+                zwanzigste <tag> out._value = 20 + out._value; </tag></item>
+      <item>
+                dreißigste <tag> out._value = 30 + out._value; </tag></item>
+      <item>
+                vierzigste <tag> out._value = 40 + out._value; </tag></item>
+      <item>
+                fünfzigste <tag> out._value = 50 + out._value; </tag></item>
+      <item>
+                sechzigste <tag> out._value = 60 + out._value; </tag></item>
+      <item>
+                siebzigste <tag> out._value = 70 + out._value; </tag></item>
+      <item>
+                achtzigste <tag> out._value = 80 + out._value; </tag></item>
+      <item>
+                neunzigste <tag> out._value = 90 + out._value; </tag></item>
+    </one-of>
+  </rule>
+  <!-- $Ordinal_20_to_99_male._value: integer [20...29] -->
+  <rule id="Ordinal_20_to_99_male" scope="public">
+    <example> zwanzigster </example>
+    <example> ein und zwanzigster </example>
+    <tag> out._value = 0; </tag>
+    <item repeat="0-1">
+      <one-of>
+        <item>
+                    ein <tag> out._value = 1; </tag></item>
+        <item>
+          <ruleref uri="#Cardinal_2_to_9" />
+          <tag> out._value = rules.latest()._value; </tag>
+        </item>
+      </one-of>
+            und
+        </item>
+    <one-of>
+      <item>
+                zwanzigster <tag> out._value = 20 + out._value; </tag></item>
+      <item>
+                dreißigster <tag> out._value = 30 + out._value; </tag></item>
+      <item>
+                vierzigster <tag> out._value = 40 + out._value; </tag></item>
+      <item>
+                fünfzigster <tag> out._value = 50 + out._value; </tag></item>
+      <item>
+                sechzigster <tag> out._value = 60 + out._value; </tag></item>
+      <item>
+                siebzigster <tag> out._value = 70 + out._value; </tag></item>
+      <item>
+                achtzigster <tag> out._value = 80 + out._value; </tag></item>
+      <item>
+                neunzigster <tag> out._value = 90 + out._value; </tag></item>
+    </one-of>
+  </rule>
+  <!-- $Ordinal_20_to_99_dativ._value: integer [20...29] -->
+  <rule id="Ordinal_20_to_99_dativ" scope="public">
+    <example> zwanzigsten </example>
+    <example> ein und zwanzigsten </example>
+    <tag> out._value = 0; </tag>
+    <item repeat="0-1">
+      <one-of>
+        <item>
+                    ein <tag> out._value = 1; </tag></item>
+        <item>
+          <ruleref uri="#Cardinal_2_to_9" />
+          <tag> out._value = rules.latest()._value; </tag>
+        </item>
+      </one-of>
+            und
+        </item>
+    <one-of>
+      <item>
+                zwanzigsten <tag> out._value = 20 + out._value; </tag></item>
+      <item>
+                dreißigsten <tag> out._value = 30 + out._value; </tag></item>
+      <item>
+                vierzigsten <tag> out._value = 40 + out._value; </tag></item>
+      <item>
+                fünfzigsten <tag> out._value = 50 + out._value; </tag></item>
+      <item>
+                sechzigsten <tag> out._value = 60 + out._value; </tag></item>
+      <item>
+                siebzigsten <tag> out._value = 70 + out._value; </tag></item>
+      <item>
+                achtzigsten <tag> out._value = 80 + out._value; </tag></item>
+      <item>
+                neunzigsten <tag> out._value = 90 + out._value; </tag></item>
+    </one-of>
+  </rule>
+  <!--
+  Category: Number
+  Description: Number rules describe numeric values on the range of - 1 million to 1 million including two decimal points. The numeric range is encoded in
+    the rule name. For example, Number_0_to_1000 will contain numbers on the range of 0...1000, like 5.65.
+    The <Number> rule covers the full range.
+    All return an float _value semantic item.
+-->
+  <!-- $Number._value: integer [-1,000,000.00 ... 1,000,000.00] -->
+  <rule id="Number" scope="public">
+    <example> eins komma eins </example>
+    <example> minus neun tausend </example>
+    <example> plus vier hundert und sieben und sechzig tausend </example>
+    <tag> var plusminus = 1;</tag>
+    <item repeat="0-1">
+      <one-of>
+        <item>
+                    plus <tag>plusminus = 1;</tag></item>
+        <item>
+                    minus <tag>plusminus = -1;</tag></item>
+      </one-of>
+    </item>
+    <one-of>
+      <item>
+        <one-of>
+          <item>
+            <ruleref uri="#Cardinal_0" />
+            <tag> out = rules.latest(); </tag>
+          </item>
+          <item>
+            <ruleref uri="#Cardinal_1_to_999" />
+            <tag> out = rules.latest(); </tag>
+          </item>
+          <item>
+            <ruleref uri="#Cardinal_1000_to_999999" />
+            <tag> out = rules.latest(); </tag>
+          </item>
+        </one-of>
+        <item repeat="0-1">
+                    komma
+                    <ruleref uri="#Cardinal_0_to_9" /><tag> out._value = out._value + rules.latest()._value / 10; </tag><item repeat="0-1"><ruleref uri="#Cardinal_0_to_9" /><tag> out._value = out._value + rules.latest()._value / 100; </tag></item></item>
+      </item>
+      <item>
+        <item repeat="0-1"> eine </item> Million
+                <tag> out._value = 1000000;</tag></item>
+    </one-of>
+    <tag> out._value = out._value * plusminus; </tag>
+  </rule>
+  <!-- $Number_upto1000._value: integer [-1,000.00 ... 1,000.00] -->
+  <rule id="Number_upto1000" scope="public">
+    <example> eins komma eins </example>
+    <example> minus neun hundert </example>
+    <example> plus vier hundert und sieben und sechzig </example>
+    <tag> var plusminus = 1;</tag>
+    <item repeat="0-1">
+      <one-of>
+        <item>
+                    plus <tag>plusminus = 1;</tag></item>
+        <item>
+                    minus <tag>plusminus = -1;</tag></item>
+      </one-of>
+    </item>
+    <one-of>
+      <item>
+        <one-of>
+          <item>
+            <ruleref uri="#Cardinal_0" />
+            <tag> out = rules.latest(); </tag>
+          </item>
+          <item>
+            <ruleref uri="#Cardinal_1_to_999" />
+            <tag> out = rules.latest(); </tag>
+          </item>
+        </one-of>
+        <item repeat="0-1">
+                    komma
+                    <ruleref uri="#Cardinal_0_to_9" /><tag> out._value = out._value + rules.latest()._value / 10; </tag><item repeat="0-1"><ruleref uri="#Cardinal_0_to_9" /><tag> out._value = out._value + rules.latest()._value / 100; </tag></item></item>
+      </item>
+      <item>
+        <item repeat="0-1"> ein </item> tausend <tag> out._value = 1000; </tag></item>
+    </one-of>
+    <tag> out._value = out._value * plusminus; </tag>
+  </rule>
+  <!--
+  Category: DigitBlock
+  Description: DigitBlock rules describe sequences of digit strings in length from 2 to 4. For example 20 is "zwei null",
+    2354 is "zwei drei fünf vier" or "drei und zwanzig vier und fünfzig", etc.
+    The length of the DigitBlock is encoded in the rule name. For example, DigitBlock_2Digits provides for digit strings of
+    length 2. E.g. "zwei ein", "zwölf", "vier vier", etc.
+    All return a string _value semantic item giving the digit string
+  -->
+  <!-- $DigitBlock_2Digits._value: string [length 2] -->
+  <rule id="DigitBlock_2Digits" scope="public">
+    <example> sieben drei </example>
+    <example> drei und achtzig </example>
+    <example> null fünf </example>
+    <tag> out._value = ''; </tag>
+    <one-of>
+      <item>
+        <ruleref uri="#Cardinal_0_to_9" />
+        <tag> out._value = out._value + rules.latest()._value; </tag>
+        <ruleref uri="#Cardinal_0_to_9" />
+        <tag> out._value = out._value + rules.latest()._value; </tag>
+      </item>
+      <item>
+        <ruleref uri="#Cardinal_10_to_99" />
+        <tag> out._value = out._value + rules.latest()._value; </tag>
+      </item>
+    </one-of>
+  </rule>
+  <!-- $DigitBlock_3Digits._value: string [length 3] -->
+  <rule id="DigitBlock_3Digits" scope="public">
+    <example> zwei fünf und fünfzig  </example>
+    <example> drei zwo fünf  </example>
+    <example> vier vier und vierzig </example>
+    <tag> out._value = ''; </tag>
+    <one-of>
+      <item>
+        <ruleref uri="#Cardinal_0_to_9" />
+        <tag> out._value = out._value + rules.latest()._value; </tag>
+        <ruleref uri="#Cardinal_0_to_9" />
+        <tag> out._value = out._value + rules.latest()._value; </tag>
+        <ruleref uri="#Cardinal_0_to_9" />
+        <tag> out._value = out._value + rules.latest()._value; </tag>
+      </item>
+      <item>
+        <ruleref uri="#Cardinal_0_to_9" />
+        <tag> out._value = out._value + rules.latest()._value; </tag>
+        <ruleref uri="#Cardinal_10_to_99" />
+        <tag> out._value = out._value + rules.latest()._value; </tag>
+      </item>
+      <item>
+        <ruleref uri="#Cardinal_10_to_99" />
+        <tag> out._value = out._value + rules.latest()._value; </tag>
+        <ruleref uri="#Cardinal_0_to_9" />
+        <tag> out._value = out._value + rules.latest()._value; </tag>
+      </item>
+      <item>
+        <item repeat="0-1"> ein </item>
+        <item> hundert </item>
+        <tag> out._value = "100"; </tag>
+      </item>
+      <item>
+        <ruleref uri="#Cardinal_2_to_9" />
+        <tag> out._value = out._value + rules.latest()._value; </tag>
+        <item> hundert </item>
+        <tag> out._value = out._value + "00"; </tag>
+      </item>
+    </one-of>
+  </rule>
+  <!-- $DigitBlock_4Digits._value: string [length 4] -->
+  <rule id="DigitBlock_4Digits" scope="public">
+    <example> fünf zwei neun neun </example>
+    <example> drei tausend </example>
+    <example> vierzig neun und siebzig </example>
+    <tag> out._value = ''; </tag>
+    <one-of>
+      <item>
+        <one-of>
+          <item>
+            <ruleref uri="#Cardinal_0_to_9" />
+            <tag> out._value = out._value + rules.latest()._value; </tag>
+            <ruleref uri="#Cardinal_0_to_9" />
+            <tag> out._value = out._value + rules.latest()._value; </tag>
+          </item>
+          <item>
+            <ruleref uri="#Cardinal_10_to_99" />
+            <tag> out._value = out._value + rules.latest()._value; </tag>
+          </item>
+        </one-of>
+        <ruleref uri="#Cardinal_0_to_9" />
+        <tag> out._value = out._value + rules.latest()._value; </tag>
+        <ruleref uri="#Cardinal_0_to_9" />
+        <tag> out._value = out._value + rules.latest()._value; </tag>
+      </item>
+      <item>
+        <one-of>
+          <item>
+            <ruleref uri="#Cardinal_0_to_9" />
+            <tag> out._value = out._value + rules.latest()._value; </tag>
+            <ruleref uri="#Cardinal_0_to_9" />
+            <tag> out._value = out._value + rules.latest()._value; </tag>
+          </item>
+          <item>
+            <ruleref uri="#Cardinal_10_to_99" />
+            <tag> out._value = out._value + rules.latest()._value; </tag>
+          </item>
+        </one-of>
+        <ruleref uri="#Cardinal_10_to_99" />
+        <tag> out._value = out._value + rules.latest()._value; </tag>
+      </item>
+      <item>
+        <ruleref uri="#Cardinal_1_to_9" />
+        <tag> out._value = out._value + rules.latest()._value; </tag>
+        <item> tausend </item>
+        <tag> out._value = out._value + "000"; </tag>
+      </item>
+      <item>
+        <item> tausend </item>
+        <tag> out._value = "1000"; </tag>
+      </item>
+    </one-of>
+  </rule>
+  <!--
+  Category: Date
+  Description: The Date rules provide for user input of dates in a number of forms. The particular form is encoded in the 
+    rule name. For example:
+      Date_Day_Month allows phrases of the form "zweiter Mai" - the year is assumed
+    When a quantity (year, month, day) in a Date is ambiguous, we provide an Alternate semantic item. The default semantic item
+    assumes future dates. Alternate semantic items will provide for past dates. For example: 
+      If today is June 1, 2005 and the user says "zweiter Mai", our rules will return:
+      Day = 2
+      Month = 5
+      Year = 2006
+      AlternateYear = 2005
+
+    Default date semantics are error checked for consistency (e.g. that February 29th only falls on leap years). Alternate date
+    semantics are not checked for consistency. The IsValidDate semantic item will be set to false if the default semantic date
+    is not valid.
+  -->
+  <!-- 
+    $Date_Day.IsValidDate: string ["true", "false"]
+    $Date_Month:
+      $Date_Month._value: integer [1...12]
+      $Date_Month._attributes.name: string ["Assumed", "Derived", "Explicit"]
+    $Date_Day:
+      $Date_Day._value: integer [1...31]
+      $Date_Day._attributes.name: string ["Assumed", "Derived", "Explicit"]
+    $Date_Year: 
+      $Date_Year._value: integer [1900...2099]
+      $Date_Year._attributes.name: string ["Assumed", "Derived", "Explicit"]
+      $Date_Year._attributes.form: string ["ShortForm", "LongForm", "Relative"] Only specified if $Date_Year._attributes.name == "Explicit" or "Derived"
+
+    $Date_AlternateMonth (Optional):
+      $Date_AlternateMonth._value: integer [1...12]
+    $Date_AlternateDay (Optional):
+      $Date_AlternateDay._value: integer [1...31]
+    $Date_AlternateYear (Optional):
+      $Date_AlternateYear._value: integer [1900...2099]
+  -->
+  <rule id="Date" scope="public">
+    <example> am dreißigsten </example>
+    <example> gestern </example>
+    <one-of>
+      <item>
+        <ruleref uri="#Date_Day" />
+      </item>
+      <item>
+        <ruleref uri="#Date_Day_Month" />
+      </item>
+      <item>
+        <ruleref uri="#Date_Day_Month_Year" />
+      </item>
+      <item>
+        <ruleref uri="#Date_Day_MonthOrd" />
+      </item>
+      <item>
+        <ruleref uri="#Date_Day_MonthOrd_Year" />
+      </item>
+      <item>
+        <ruleref uri="#Date_Relative" />
+      </item>
+    </one-of>
+    <tag> out = rules.latest(); </tag>
+  </rule>
+  <!-- 
+  $Date_Day.IsValidDate: string ["true", "false"]
+  $Date_Day.Month:
+    $Date_Day.Month._value: integer [1...12]
+    $Date_Day.Month._attributes.name: string ["Assumed"]
+  $Date_Day.Day:
+    $Date_Day.Day._value: integer [1...31]
+    $Date_Day.Day._attributes.name: string ["Explicit"]
+  $Date_Day.Year: 
+    $Date_Day.Year._value: integer [1900...2099]
+    $Date_Day.Year._attributes.name: string ["Assumed"]
+
+  $Date_Day.AlternateMonth:
+    $Date_Day.AlternateMonth._value: integer [1...12]
+  $Date_Day.AlternateYear:
+    $Date_Day.AlternateYear._value: integer [1900...2099]
+
+  -->
+  <rule id="Date_Day" scope="public">
+    <example> am dreißigsten </example>
+    <tag> out.Day = new Object(); out.Month = new Object(); out.Year = new Object(); out.AlternateMonth = new Object(); out.AlternateYear = new Object(); </tag>
+    <one-of>
+      <item>
+                am
+                <item repeat="0-1"><ruleref uri="#Date_Weekday" /> den
+                </item><ruleref uri="#Ordinal_1_to_31_dativ" /><tag> out.Day._value = rules.latest()._value; </tag></item>
+      <item>
+        <item repeat="0-1">
+          <ruleref uri="#Date_Weekday" /> der
+                </item>
+        <ruleref uri="#Ordinal_1_to_31_article" />
+        <tag> out.Day._value = rules.latest()._value; </tag>
+      </item>
+    </one-of>
+    <tag>
+            out.Day._attributes.name = "Explicit";
+            out.Month._value = FutureMonth(out.Day._value);
+            out.Month._attributes.name = "Assumed";
+            out.Year._value = FutureYear(out.Month._value, out.Day._value);
+            out.Year._attributes.name = "Assumed";
+            out.AlternateMonth._value = PastMonth(out.Day._value);
+            out.AlternateYear._value = PastYear(out.AlternateMonth._value, out.Day._value);
+            out.IsValidDate = IsValidDate(out.Month._value, out.Day._value, out.Year._value);
+        </tag>
+  </rule>
+  <!--
+    $Date_Day_Month.IsValidDate: string ["true, "false"]
+    $Date_Day_Month.Month:
+      $Date_Day_Month.Month._value: integer [1...12]
+      $Date_Day_Month.Month._attributes.name: string ["Explicit"]
+    $Date_Day_Month.Day
+      $Date_Day_Month.Day._value: integer [1...31]
+      $Date_Day_Month.Day._attributes.name: string ["Explicit"]
+    $Date_Day_Month.Year
+      $Date_Day_Month.Year._value: integer [1900...2099]
+      $Date_Day_Month.Year._attributes.name: string ["Assumed"]
+    $Date_Day_Month.AlternateYear
+      $Date_Day_Month.AlternateYear._value: integer [1900...2099]
+  -->
+  <rule id="Date_Day_Month" scope="public">
+    <example> der zwanzigste Januar </example>
+    <tag> out.Day = new Object(); out.Month = new Object(); out.Year = new Object(); out.AlternateYear = new Object(); </tag>
+    <one-of>
+      <item>
+        <item repeat="0-1">
+          <ruleref uri="#Date_Weekday" />
+        </item>
+                der
+                <ruleref uri="#Ordinal_1_to_31_article" /><tag> out.Day._value = rules.latest()._value; </tag></item>
+      <item>
+        <item repeat="0-1">
+          <ruleref uri="#Date_Weekday" />
+        </item>
+        <ruleref uri="#Ordinal_1_to_31_male" />
+        <tag> out.Day._value = rules.latest()._value; </tag>
+      </item>
+      <item>
+                am
+                <item repeat="0-1"><ruleref uri="#Date_Weekday" />
+                    den
+                </item><ruleref uri="#Ordinal_1_to_31_dativ" /><tag> out.Day._value = rules.latest()._value; </tag></item>
+    </one-of>
+    <ruleref uri="#Date_Month" />
+    <tag> out.Month._value = rules.latest().Month._value; </tag>
+    <tag>
+            out.Day._attributes.name = "Explicit";
+            out.Month._attributes.name = "Explicit";
+            out.Year._value = FutureYear(out.Month._value, out.Day._value);
+            out.Year._attributes.name = "Assumed";
+            out.AlternateYear._value = PastYear(out.Month._value, out.Day._value);
+            out.IsValidDate = IsValidDate(out.Month._value, out.Day._value, out.Year._value);
+        </tag>
+  </rule>
+  <!-- 
+  $Date_Day_MonthOrd.IsValidDate: string ["true", "false"]
+  $Date_Day_MonthOrd.Month:
+    $Date_Day_MonthOrd.Month._value: integer [1...12]
+    $Date_Day_MonthOrd.Month._attributes.name: string ["Explicit"]
+  $Date_Day_MonthOrd.Day:
+    $Date_Day_MonthOrd.Day._value: integer [1...31]
+    $Date_Day_MonthOrd.Day._attributes.name: string ["Explicit"]
+  $Date_Day_MonthOrd.Year: 
+    $Date_Day_MonthOrd.$Year._value: integer [1900...2099]
+    $Date_Day_MonthOrd.$Year._attributes.name: string ["Assumed"]
+
+  $Date_Day_MonthOrd.AlternateYear:
+    $Date_Day_MonthOrd.AlternateYear._value: integer [1900...2099]
+  -->
+  <rule id="Date_Day_MonthOrd" scope="public">
+    <example> der zwanzigste erste </example>
+    <tag>
+    	out.Day = new Object();
+    	out.Month = new Object();
+    	out.Year = new Object();
+    	out.AlternateYear = new Object();
+        var offsetDay;
+        var offsetMonth;
+    </tag>
+    <one-of>
+      <item>
+        <item repeat="0-1">
+          <ruleref uri="#Date_Weekday" />
+        </item>
+                der
+                <ruleref uri="#Ordinal_1_to_31_article" />
+                <tag> offsetDay = rules.latest()._value; </tag>
+                <ruleref uri="#Ordinal_1_to_12_article" />
+                <tag> offsetMonth = rules.latest()._value; </tag>
+      </item>
+      <item>
+        <ruleref uri="#Ordinal_1_to_31_male" />
+        <tag> offsetDay = rules.latest()._value; </tag>
+        <ruleref uri="#Ordinal_1_to_12_male" />
+        <tag> offsetMonth = rules.latest()._value; </tag>
+      </item>
+      <item>
+                am
+                <item repeat="0-1">
+                    <ruleref uri="#Date_Weekday" />
+                    den
+                </item>
+                <ruleref uri="#Ordinal_1_to_31_dativ" />
+                <tag> offsetDay = rules.latest()._value; </tag>
+                <ruleref uri="#Ordinal_1_to_12_dativ" />
+                <tag> offsetMonth = rules.latest()._value; </tag>
+      </item>
+    </one-of>
+    <tag>
+            out.Day._value = offsetDay;
+            out.Day._attributes.name = "Explicit";
+            out.Month._value = offsetMonth;
+            out.Month._attributes.name = "Explicit";
+            out.Year._value = FutureYear(out.Month._value, out.Day._value);
+            out.Year._attributes.name = "Assumed";
+            out.AlternateYear._value = PastYear(out.Month._value, out.Day._value);
+            out.IsValidDate = IsValidDate(out.Month._value, out.Day._value, out.Year._value);
+        </tag>
+  </rule>
+  <!-- 
+  $Date_Day_MonthOrd_Year.IsValidDate: string ["true", "false"]
+  $Date_Day_MonthOrd_Year.Month:
+    $Date_Day_MonthOrd_Year.Month._value: integer [1...12]
+    $Date_Day_MonthOrd_Year.Month._attributes.name: string ["Explicit"]
+  $Date_Day_MonthOrd_Year.Day:
+    $Date_Day_MonthOrd_Year.Day._value: integer [1...31]
+    $Date_Day_MonthOrd_Year.Day._attributes.name: string ["Explicit"]
+  $Date_Day_MonthOrd_Year.Year: 
+    $Date_Day_MonthOrd_Year.$Year._value: integer [1900...2099]
+    $Date_Day_MonthOrd_Year.$Year._attributes.name: string ["Explicit"]
+
+  $Date_Day_MonthOrd_Year.AlternateYear:
+    $Date_Day_MonthOrd_Year.AlternateYear._value: integer [1900...2099]
+  -->
+  <rule id="Date_Day_MonthOrd_Year" scope="public">
+    <example> der zwanzigste erste dreißig </example>
+    <tag>
+    	out.Day = new Object();
+    	out.Month = new Object();
+    	out.Year = new Object();
+    </tag>
+    <ruleref uri="#Date_Day_MonthOrd" />
+    <tag>
+    	out.Month = rules.Date_Day_MonthOrd.Month;
+    	out.Day = rules.Date_Day_MonthOrd.Day;
+    </tag>
+    <ruleref uri="#Date_Year" />
+    <tag>
+    	out.Year = rules.Date_Year;
+    	out.Year._attributes.name = "Explicit";
+    	out.IsValidDate = IsValidDate(out.Month._value, out.Day._value, out.Year._value);
+    </tag>
+  </rule>
+  <!-- 
+  $Date_Day_Month_Year.IsValidDate: string ["true", "false"]
+  $Date_Day_Month_Year.Month:
+    $Date_Day_Month_Year.Month._value: integer [1...12]
+    $Date_Day_Month_Year.Month._attributes.name: string ["Explicit"]
+  $Date_Day_Month_Year.Day:
+    $Date_Day_Month_Year.Day._value: integer [1...31]
+    $Date_Day_Month_Year.Day._attributes.name: string ["Explicit"]
+  $Date_Day_Month_Year.Year: 
+    $Date_Day_Month_Year.Year._value: integer [1900...2099]
+    $Date_Day_Month_Year.Year._attributes.name: string ["Explicit"]
+    $Date_Day_Month_Year.Year._attributes.form: string ["ShortForm", "LongForm", "Relative"]
+  -->
+  <rule id="Date_Day_Month_Year" scope="public">
+    <example> der zwanzigste Januar dreißig </example>
+    <tag>
+    	out.Day = new Object();
+    	out.Month = new Object();
+    	out.Year = new Object();
+    </tag>
+    <ruleref uri="#Date_Day_Month" />
+    <tag>
+    	out.Month = rules.Date_Day_Month.Month;
+    	out.Day = rules.Date_Day_Month.Day;
+    </tag>
+    <ruleref uri="#Date_Year" />
+    <tag> out.Year = rules.Date_Year; </tag>
+    <tag>
+    		out.Year._attributes.name = "Explicit";
+            out.IsValidDate = IsValidDate(out.Month._value, out.Day._value, out.Year._value);
+    </tag>
+  </rule>
+  <!-- 
+  $Date_Relative.Day.IsValidDate: string ["true", "false"]
+  $Date_Relative.Month:
+  $Date_Relative.Month._value: integer [1...12]
+  $Date_Relative.Month._attributes.name: string ["Assumed", "Derived"]
+  $Date_Relative.Day:
+  $Date_Relative.Day._value: integer [1...31]
+  $Date_Relative.Day._attributes.name: string ["Assumed", "Derived"]
+  $Date_Relative.Year:
+  $Date_Relative.Year._value: integer [1900...2099]
+  $Date_Relative.Year._attributes.name: string ["Derived"]
+
+  $Date_Relative.AlternateMonth (Optional):
+  $Date_Relative.AlternateMonth._value: integer [1...12]
+  $Date_Relative.AlternateDay (Optional):
+  $Date_Relative.AlternateDay._value: integer [1...31]
+  $Date_Relative.AlternateYear (Optional):
+  $Date_Relative.AlternateYear._value: integer [1900...2099]
+  -->
+  <rule id="Date_Relative" scope="public">
+    <example> heute </example>
+    <example> morgen </example>
+    <example> gestern </example>
+    <tag> out.Day = new Object(); out.Month = new Object(); out.Year = new Object(); </tag>
+    <tag>
+            var oDate;
+            out.Day._attributes.name = "Derived";
+            out.Month._attributes.name = "Derived";
+            out.Year._attributes.name = "Derived";
+        </tag>
+    <one-of>
+      <item>
+                heute <tag> oDate = GetDateFromOffset(0); </tag></item>
+      <item>
+                morgen <tag> oDate = GetDateFromOffset(1); </tag></item>
+      <item>
+                gestern <tag> oDate = GetDateFromOffset(-1); </tag></item>
+      <item>
+        <item repeat="0-1"> am </item> nächsten <ruleref uri="#Date_Weekday" /><tag> out.AlternateMonth = new Object(); out.AlternateYear = new Object(); out.AlternateDay = new Object(); </tag><tag>
+                    var weekdayOffset = GetOffsetFromWeekday(rules.latest()._value, "next");
+                    oDate = GetDateFromOffset(weekdayOffset);
+
+                    var altWeekdayOffset = weekdayOffset + 7;
+                    var altDate = GetDateFromOffset(altWeekdayOffset);
+                    out.AlternateYear._value = altDate.getFullYear();
+                    out.AlternateMonth._value = altDate.getMonth() + 1;
+                    out.AlternateDay._value = altDate.getDate();
+                </tag></item>
+      <item>
+        <ruleref uri="#Date_Weekday" />
+        <tag> out.AlternateMonth = new Object(); out.AlternateYear = new Object(); out.AlternateDay = new Object(); </tag>
+        <tag>
+                    var weekdayOffset = GetOffsetFromWeekday(rules.latest()._value, "next");
+                    oDate = GetDateFromOffset(weekdayOffset);
+
+                    var altWeekdayOffset = GetOffsetFromWeekday(rules.latest()._value, "previous");
+                    var altDate = GetDateFromOffset(altWeekdayOffset);
+                    out.AlternateYear._value = altDate.getFullYear();
+                    out.AlternateMonth._value = altDate.getMonth() + 1;
+                    out.AlternateDay._value = altDate.getDate();
+                </tag>
+      </item>
+      <item>
+        <item repeat="0-1"> am </item> letzten <ruleref uri="#Date_Weekday" /><tag> out.AlternateMonth = new Object(); out.AlternateYear = new Object(); out.AlternateDay = new Object(); </tag><tag>
+                    var weekdayOffset = GetOffsetFromWeekday(rules.latest()._value, "previous");
+                    oDate = GetDateFromOffset(weekdayOffset);
+
+                    var altWeekdayOffset = weekdayOffset - 7;
+                    var altDate = GetDateFromOffset(altWeekdayOffset);
+                    out.AlternateYear._value = altDate.getFullYear();
+                    out.AlternateMonth._value = altDate.getMonth() + 1;
+                    out.AlternateDay._value = altDate.getDate();
+                </tag></item>
+    </one-of>
+    <tag>
+            out.Year._value = oDate.getFullYear();
+            out.Month._value = oDate.getMonth() + 1;
+            out.Day._value = oDate.getDate();
+            out.IsValidDate = IsValidDate(out.Month._value, out.Day._value, out.Year._value);
+        </tag>
+  </rule>
+  <!-- 
+  $Date_Weekday._value : integer [1...7] Sonntag=1, Montag=2, ..., Samstag=7
+  -->
+  <rule id="Date_Weekday" scope="public">
+    <example> Sonntag </example>
+    <example> Freitag </example>
+    <one-of>
+      <item>
+                Sonntag <tag> out._value = 1; </tag></item>
+      <item>
+                Montag <tag> out._value = 2; </tag></item>
+      <item>
+                Dienstag <tag> out._value = 3; </tag></item>
+      <item>
+                Mittwoch <tag> out._value = 4; </tag></item>
+      <item>
+                Donnerstag <tag> out._value = 5; </tag></item>
+      <item>
+                Freitag <tag> out._value = 6; </tag></item>
+      <item>
+                Samstag <tag> out._value = 7; </tag></item>
+      <item>
+                Sonnabend <tag> out._value = 7; </tag></item>
+    </one-of>
+  </rule>
+  <!-- $Date_Month._value : integer [1...12] -->
+  <rule id="Date_Month" scope="public">
+    <example> Februar </example>
+    <example> April </example>
+    <example> Dezember </example>
+    <tag> out.Month = new Object(); </tag>
+    <tag> out.Month._attributes.name = "explicit"; </tag>
+    <one-of>
+      <item>
+                Januar <tag> out.Month._value = 1; </tag></item>
+      <item>
+                März <tag> out.Month._value = 3; </tag></item>
+      <item>
+                Mai <tag> out.Month._value = 5; </tag></item>
+      <item>
+                Juli <tag> out.Month._value = 7; </tag></item>
+      <item>
+                August <tag> out.Month._value = 8; </tag></item>
+      <item>
+                Oktober <tag> out.Month._value = 10; </tag></item>
+      <item>
+                Dezember <tag> out.Month._value = 12; </tag></item>
+      <item>
+                Februar <tag> out.Month._value = 2; </tag></item>
+      <item>
+                April <tag> out.Month._value = 4; </tag></item>
+      <item>
+                Juni <tag> out.Month._value = 6; </tag></item>
+      <item>
+                September <tag> out.Month._value = 9; </tag></item>
+      <item>
+                November <tag> out.Month._value = 11; </tag></item>
+    </one-of>
+  </rule>
+  <!-- 
+  Date_Year: Supports years between 1900 and 2099. If the caller just specifies the last two digits
+  then the behavior is as follows: 30 < NN: 20NN; 30 >= NN: 19NN
+  Also covers next, previous and this year.
+  
+  $Date_Year._value: integer [1900...2099]
+  $Date_Year._attributes.name: string ["Derived", "Explicit"]
+  $Date_Year._attributes.form: string ["Long Form", "Short Form", "Relative"]
+  -->
+  <rule id="Date_Year" scope="public">
+    <example> neunzehn hundert und sechs </example>
+    <example> neun und neunzig </example>
+    <example> null eins </example>
+    <example> zwei tausend und sechs </example>
+    <example> zwei tausend elf </example>
+    <tag>
+    	var offset = 0;
+    	out._value = (new Date()).getFullYear();
+	</tag>
+    <one-of>
+      <item>
+        <item> neunzehn hundert </item>
+        <item repeat="0-1">
+          <item repeat="0-1"> und </item>
+          <ruleref uri="#Cardinal_1_to_99" />
+          <tag> out._value = rules.latest()._value; </tag>
+        </item>
+        <tag>
+        	out._value = 1900 + out._value;
+            out._attributes.name = "Explicit";
+            out._attributes.form = "Long Form";
+ 		</tag>
+       </item>
+      <item>
+        <item> neunzehn </item>
+        <ruleref uri="#Cardinal_1_to_99" />
+        <tag>
+        	out._value = 1900 + rules.latest()._value;
+            out._attributes.name = "Explicit";
+            out._attributes.form = "Long Form";
+        </tag>
+      </item>
+      <item>
+        <item> zwei tausend </item>
+        <item repeat="0-1">
+          <item repeat="0-1"> und </item>
+          <ruleref uri="#Cardinal_1_to_99" />
+          <tag> out._value = rules.latest()._value; </tag>
+        </item>
+        <tag>
+        	out._value = 2000 + out._value;
+        	out._attributes.name = "Explicit";
+			out._attributes.form = "Long Form";
+        </tag>
+     </item>
+      <item>
+      		zwanzig
+      		<one-of>
+      			<item>
+      				<item repeat="0-1"> null </item>
+      				<ruleref uri="#Cardinal_1_to_9" />
+      			</item>
+      			<item>
+      				<ruleref uri="#Cardinal_10_to_19" />
+      			</item>
+      			<item>
+      				<ruleref uri="#Cardinal_20_to_99" />
+      			</item>
+      		</one-of>
+      		<tag>
+      			out._value = 2000 + rules.latest()._value;
+      			out._attributes.name = "Explicit";
+      			out._attributes.form = "Long Form";
+			</tag>
+      </item>
+      <item>
+        <tag> temp = 0; </tag>
+        <one-of>
+          <item>
+				null
+				<ruleref uri="#Cardinal_1_to_9" />
+				<tag> temp = rules.latest()._value; </tag>
+		  </item>
+          <item>
+            <ruleref uri="#Cardinal_10_to_19" />
+            <tag> temp = rules.latest()._value; </tag>
+          </item>
+        </one-of>
+        <tag>
+        	out._value = 2000 + temp;
+        	out._attributes.name = "Derived";
+        	out._attributes.form = "Short Form";
+        </tag>
+      </item>
+      <item>
+        <ruleref uri="#Cardinal_20_to_99" />
+        <tag>
+        	offset = rules.latest()._value;
+            if (offset >= 30)
+            {
+            	out._value = offset + 1900;
+			}
+			else
+			{
+				out._value = offset + 2000;
+			}          
+        	out._attributes.name = "Derived";
+        	out._attributes.form = "Short Form";
+        </tag>
+      </item>
+      <item>
+        <one-of>
+          <item> nächstes Jahr </item>
+          <item> im nächsten Jahr </item>
+        </one-of>
+        <tag>
+        	out._value = out._value + 1;
+        	out._attributes.name = "Derived";
+        	out._attributes.form = "Relative";
+        </tag>
+      </item>
+      <item>
+        <one-of>
+          <item> dieses Jahr </item>
+          <item> in diesem Jahr </item>
+        </one-of>
+        <tag>
+        	out._value = out._value;
+        	out._attributes.name = "Derived";
+        	out._attributes.form = "Relative";
+        </tag>
+      </item>
+      <item>
+        <one-of>
+          <item> letztes Jahr </item>
+          <item> im letzten Jahr </item>
+        </one-of>
+        <tag>
+        	out._value = out._value - 1;
+        	out._attributes.name = "Derived";
+        	out._attributes.form = "Relative";
+        </tag>
+      </item>
+    </one-of>
+  </rule>
+  <!--
+  Category: Time
+  Description: The Time rule provides for input of clock time quantities. 
+  -->
+  <!--
+  $Time_Hour:
+    $Time_Hour._value: integer [0...23]
+    $Time_Hour._attributes.name: string ["Assumed", "Explicit"]
+  $Time_Minute:
+    $Time_Minute: integer [0...59]
+  $Time_AlternateHour._value: integer [0...23]
+  -->
+  <rule id="Time" scope="public">
+    <example> sieben und dreißig Minuten bis elf Uhr am Abend  </example>
+    <example> vier und vierzig Minuten vor zwo </example>
+    <example> vier Minuten vor halb elf </example>
+    <tag> out.Hour = new Object(); out.Minute = new Object(); </tag>
+    <one-of>
+      <item>
+        <ruleref uri="#Time_Hour" />
+        <tag> out = rules.latest(); out.Minute = new Object(); out.Minute._value = 0; </tag>
+      </item>
+      <item>
+        <ruleref uri="#Time_BeforeAfter" />
+        <tag> var offset = rules.latest()._value; </tag>
+        <ruleref uri="#Time_Hour" />
+        <tag>
+                    out = rules.latest();
+                    out.Minute = new Object();
+                    out.Hour._value = NormalizeHour(out.Hour._value, offset);
+                    out.Minute._value = NormalizeMinute(offset);
+                    if (typeof(out.AlternateHour) != "undefined") {
+                    out.AlternateHour._value = NormalizeHour(out.AlternateHour._value, offset);
+                    }
+                </tag>
+      </item>
+      <item>
+        <item> viertel </item>
+        <tag> var offset = 15; </tag>
+        <ruleref uri="#Time_Hour" />
+        <tag>
+                    out = rules.latest();
+                    out.Minute = new Object();
+                    out.Hour._value = NormalizeHour(out.Hour._value - 1, offset);
+                    out.Minute._value = NormalizeMinute(offset);
+                    if (typeof(out.AlternateHour) != "undefined") {
+                    out.AlternateHour._value = NormalizeHour(out.AlternateHour._value - 1, offset);
+                    }
+                </tag>
+      </item>
+      <item>
+        <tag> out.AlternateHour = new Object(); </tag>
+        <one-of>
+          <item>
+                        ein Uhr <item repeat="0-1"> und </item><tag> out.Hour._value = Hour24(1, ""); out.Hour._attributes.name = "Assumed"; out.AlternateHour._value = AlternateHour24(1); </tag></item>
+          <item>
+            <ruleref uri="#Time_HourNum_2_to_12" />
+            <tag> out.Hour._value = Hour24(rules.latest()._value, ""); out.Hour._attributes.name = "Assumed"; out.AlternateHour._value = AlternateHour24(rules.latest()._value); </tag>
+          </item>
+          <item>
+            <ruleref uri="#Time_HourNum_13_to_0" />
+            <tag> out.Hour._value = Hour24(rules.latest()._value, ""); out.Hour._attributes.name = "Assumed"; out.AlternateHour._value = AlternateHour24(rules.latest()._value); </tag>
+          </item>
+        </one-of>
+                Uhr <item repeat="0-1"> und </item><ruleref uri="#Time_Minute" /><tag> out.Minute._value = rules.latest()._value; </tag></item>
+      <item>
+        <ruleref uri="#Time_HourNum_2_to_12" />
+        <tag> out.Hour._value = rules.latest()._value; out.Hour._attributes.name = "Explicit"; </tag>
+                Uhr <item repeat="0-1"> und </item><ruleref uri="#Time_Minute" /><tag> out.Minute._value = rules.latest()._value; </tag><ruleref uri="#Time_AmPm" /><tag> out.Hour._value = Hour24(out.Hour._value, rules.latest()._value); </tag></item>
+      <item>
+        <tag> var offset = 0; out.Hour._attributes.name = "Explicit"; out.Minute._value = 0; </tag>
+        <item repeat="0-1">
+          <ruleref uri="#Time_BeforeAfter" />
+          <tag> offset = rules.latest()._value; </tag>
+        </item>
+                Mitternacht <tag> out.Hour._value = 0; </tag><tag> out.Hour._value = NormalizeHour(out.Hour._value, offset); out.Minute._value = NormalizeMinute(offset); </tag></item>
+    </one-of>
+  </rule>
+  <!--
+  $Time_Hour:
+    $Time_Hour.Hour:
+      $Time_Hour.Hour._value: integer [0...23]
+      $Time_Hour.Hour._attributes.name: string ["Assumed", "Explicit"]
+    $Time_Hour.AlternateHour._value: integer [0...23]
+  -->
+  <rule id="Time_Hour" scope="public">
+    <example> eins </example>
+    <example> ein Uhr </example>
+    <example> sechs </example>
+    <tag> out.Hour = new Object(); </tag>
+    <one-of>
+      <item>
+        <one-of>
+          <item>
+                        eins <tag> out.Hour._value = 1; </tag></item>
+          <item>
+                        ein Uhr <tag> out.Hour._value = 1; </tag></item>
+          <item>
+            <ruleref uri="#Time_HourNum_2_to_12" />
+            <tag> out.Hour._value = rules.latest()._value; </tag>
+            <item repeat="0-1"> Uhr </item>
+          </item>
+        </one-of>
+        <tag>
+                    out.Hour._value = Hour24(out.Hour._value, "");
+                    out.Hour._attributes.name = "Assumed";
+                    out.AlternateHour = new Object();
+                    out.AlternateHour._value = AlternateHour24(out.Hour._value);
+                </tag>
+      </item>
+      <item>
+        <one-of>
+          <item>
+                        eins <tag> out.Hour._value = 1; </tag></item>
+          <item>
+                        ein Uhr <tag> out.Hour._value = 1; </tag></item>
+          <item>
+            <ruleref uri="#Time_HourNum_2_to_12" />
+            <tag> out.Hour._value = rules.latest()._value; </tag>
+            <item repeat="0-1"> Uhr </item>
+          </item>
+        </one-of>
+        <ruleref uri="#Time_AmPm" />
+        <tag>
+                    out.Hour._value = Hour24(out.Hour._value, rules.latest()._value);
+                    out.Hour._attributes.name = "Explicit";
+                </tag>
+      </item>
+      <item>
+        <ruleref uri="#Time_HourNum_13_to_0" />
+        <tag> out.Hour._value = rules.latest()._value; </tag>
+        <item repeat="0-1"> Uhr </item>
+        <tag>
+                    out.Hour._value = Hour24(out.Hour._value, rules.latest()._value);
+                    out.Hour._attributes.name = "Explicit";
+                </tag>
+      </item>
+    </one-of>
+  </rule>
+  <!--
+  $Time_HourNum:
+  $Time_HourNum_2_to_12._value: integer [2...12]
+  -->
+  <rule id="Time_HourNum_2_to_12" scope="public">
+    <example> neun </example>
+    <one-of>
+      <item>
+        <ruleref uri="#Cardinal_2_to_9" />
+        <tag> out._value = rules.latest()._value; </tag>
+      </item>
+      <item>
+                zehn <tag> out._value = 10;</tag></item>
+      <item>
+                elf <tag> out._value = 11;</tag></item>
+      <item>
+                zwölf <tag> out._value = 12;</tag></item>
+    </one-of>
+  </rule>
+  <!--
+  $Time_HourNum:
+  $Time_HourNum_13_to_0._value: integer [13...23,0]
+  -->
+  <rule id="Time_HourNum_13_to_0" scope="public">
+    <example> fünfzehn </example>
+    <one-of>
+      <item>
+        <ruleref uri="#Cardinal_0" />
+        <tag> out._value = rules.latest()._value; </tag>
+      </item>
+      <item>
+                dreizehn <tag> out._value = 13;</tag></item>
+      <item>
+                vierzehn <tag> out._value = 14;</tag></item>
+      <item>
+                fünfzehn <tag> out._value = 15;</tag></item>
+      <item>
+                sechzehn <tag> out._value = 16;</tag></item>
+      <item>
+                siebzehn <tag> out._value = 17;</tag></item>
+      <item>
+                achtzehn <tag> out._value = 18;</tag></item>
+      <item>
+                neunzehn <tag> out._value = 19;</tag></item>
+      <item>
+                zwanzig <tag> out._value = 20;</tag></item>
+      <item>
+                ein und zwanzig <tag> out._value = 21;</tag></item>
+      <item>
+                zwei und zwanzig <tag> out._value = 22;</tag></item>
+      <item>
+                drei und zwanzig <tag> out._value = 23;</tag></item>
+    </one-of>
+  </rule>
+  <!--
+  $Time_BeforeAfter:
+    $Time_BeforeAfter._hour: integer [0,-1]
+    $Time_BeforeAfter._minute: integer [0...59]
+  -->
+  <rule id="Time_BeforeAfter" scope="public">
+    <example> dreißig bis </example>
+    <one-of>
+      <item>
+                viertel nach <tag> out._value = 15; </tag></item>
+      <item>
+                viertel vor  <tag> out._value = -15; </tag></item>
+      <item>
+                halb         <tag> out._value = 30; </tag></item>
+      <item>
+        <ruleref uri="#Time_Minute_1_to_14" />
+        <tag> out._value = 30 - rules.latest()._value; </tag>
+        <one-of>
+          <item> vor halb </item>
+          <item> bis halb </item>
+        </one-of>
+      </item>
+      <item>
+        <ruleref uri="#Time_Minute_1_to_14" />
+        <tag> out._value = 30 + rules.latest()._value; </tag>
+        <item> nach halb </item>
+      </item>
+      <item>
+                drei viertel <tag> out._value = -15; </tag></item>
+      <item>
+        <ruleref uri="#Time_Minute" />
+        <tag> out._value = rules.latest()._value - 60; </tag>
+        <one-of>
+          <item> vor </item>
+          <item> bis </item>
+        </one-of>
+      </item>
+      <item>
+        <ruleref uri="#Time_Minute" />
+        <tag> out._value = rules.latest()._value; </tag>
+        <item> nach </item>
+      </item>
+    </one-of>
+  </rule>
+  <!--
+  $Time_Minute:
+  $Time_Minute._value: integer [1...59]
+  -->
+  <rule id="Time_Minute" scope="public">
+    <example> fünf und fünfzig Minuten </example>
+    <example> eine Minute </example>
+    <example> vierzehn Minuten </example>
+    <tag> out._value = 0; </tag>
+    <one-of>
+      <item>
+        <item repeat="0-1"> null </item>
+                eins
+                <tag> out._value = 1; </tag></item>
+      <item>
+        <item repeat="0-1"> null </item>
+        <ruleref uri="#Cardinal_2_to_9" />
+        <item repeat="0-1"> Minuten </item>
+        <tag> out._value = rules.latest()._value; </tag>
+      </item>
+      <item>
+                eine Minute <tag> out._value = 1; </tag></item>
+      <item>
+        <item repeat="0-1">
+          <one-of>
+            <item>
+                            ein <tag> out._value = 1; </tag></item>
+            <item>
+              <ruleref uri="#Cardinal_2_to_9" />
+              <tag> out._value = rules.latest()._value; </tag>
+            </item>
+          </one-of>
+                    und
+                </item>
+        <one-of>
+          <item>
+                        zwanzig <item repeat="0-1"> Minuten </item><tag> out._value = out._value + 20; </tag></item>
+          <item>
+                        dreißig <item repeat="0-1"> Minuten </item><tag> out._value = out._value + 30; </tag></item>
+          <item>
+                        vierzig <item repeat="0-1"> Minuten </item><tag> out._value = out._value + 40; </tag></item>
+          <item>
+                        fünfzig <item repeat="0-1"> Minuten </item><tag> out._value = out._value + 50; </tag></item>
+        </one-of>
+        <tag> out._value = out._value; </tag>
+      </item>
+      <item>
+        <ruleref uri="#Cardinal_10_to_19" />
+        <item repeat="0-1"> Minuten </item>
+        <tag> out._value = rules.latest()._value; </tag>
+      </item>
+    </one-of>
+  </rule>
+  <!--
+  $Time_Minute_1_to_14:
+  $Time_Minute_1_to_14._value: integer [1...14]
+  -->
+  <rule id="Time_Minute_1_to_14" scope="public">
+    <example> eine Minute </example>
+    <example> zehn Minuten </example>
+    <example> dreizehn Minuten </example>
+    <tag> out._value = 0; </tag>
+    <one-of>
+      <item>
+                eine Minute <tag> out._value = 1; </tag></item>
+      <item>
+        <ruleref uri="#Cardinal_2_to_9" /> Minuten
+                <tag> out._value = rules.latest()._value; </tag></item>
+      <item>
+                zehn Minuten <tag> out._value = 10; </tag></item>
+      <item>
+                elf Minuten <tag> out._value = 11; </tag></item>
+      <item>
+                zwölf Minuten<tag> out._value = 12; </tag></item>
+      <item>
+                dreizehn Minuten<tag> out._value = 13; </tag></item>
+      <item>
+                vierzehn Minuten<tag> out._value = 14; </tag></item>
+    </one-of>
+  </rule>
+  <!--
+  $Time_AmPm:
+  $Time_AmPm._value: string ["AM", "PM"]
+  -->
+  <rule id="Time_AmPm" scope="public">
+    <example> morgens </example>
+    <example> vormittags </example>
+    <example> abends </example>
+    <example> in der Nacht </example>
+    <one-of>
+      <item>
+        <one-of>
+          <item> morgens </item>
+          <item> am morgen </item>
+          <item> in der früh </item>
+          <item> vormittags </item>
+          <item> am Vormittag </item>
+        </one-of>
+        <tag> out._value = "AM"; </tag>
+      </item>
+      <item>
+        <one-of>
+          <item> am Mittag </item>
+          <item> nachmittags </item>
+          <item> mittags </item>
+          <item> am Nachmittag </item>
+          <item> abends </item>
+          <item> am Abend </item>
+          <item> nachts </item>
+          <item> in der Nacht </item>
+        </one-of>
+        <tag> out._value = "PM"; </tag>
+      </item>
+    </one-of>
+  </rule>
+  <!--
+  Category: Currency_Euro
+  Description: The Currency_Euro rules describes a quantity of currency up to 10000 Euros and 99 Cents. 
+    There are rules that limit the quantity that will be accepted. These rules are named with the limit in the title.
+    For example Currency_Euro_upto_1000 accepts whole quantities upto and and including €1000.99
+  -->
+  <!-- 
+  $Currency_Euro._value: float [0.00 ... 1000000.99]
+  -->
+  <rule id="Currency_Euro" scope="public">
+    <example> zehn tausend zwei hundert zehn Euros und fünfzig Cents </example>
+    <tag> out._value = 0.00; </tag>
+    <one-of>
+      <item>
+        <ruleref uri="#Cardinal" />
+        <tag> out._value = rules.latest()._value; </tag>
+        <one-of>
+          <item> Euro </item>
+          <item> Euros </item>
+        </one-of>
+        <item repeat="0-1">
+          <item repeat="0-1"> und </item>
+          <ruleref uri="#Cardinal_1_to_99" />
+          <tag> out._value = out._value + rules.latest()._value*0.01; </tag>
+          <one-of>
+            <item> Cent </item>
+            <item> Cents </item>
+          </one-of>
+        </item>
+      </item>
+      <item>
+        <ruleref uri="#Cardinal" />
+        <tag> out._value = rules.latest()._value; </tag>
+      </item>
+      <item>
+        <ruleref uri="#Cardinal_1_to_99" />
+        <tag> out._value = rules.latest()._value*0.01; </tag>
+        <one-of>
+          <item> Cent </item>
+          <item> Cents </item>
+        </one-of>
+      </item>
+    </one-of>
+  </rule>
+  <!-- 
+  $Currency_Euro_upto_100._value: float [0.00 ... 100.00]
+  -->
+  <rule id="Currency_Euro_upto_100" scope="public">
+    <example> zehn Euros siebzehn Cents </example>
+    <example> ein hundert Euros </example>
+    <tag> out._value = 0.00; </tag>
+    <one-of>
+      <item>
+        <ruleref uri="#Cardinal_1_to_99" />
+        <tag> out._value = rules.latest()._value; </tag>
+        <one-of>
+          <item> Euro </item>
+          <item> Euros </item>
+        </one-of>
+        <item repeat="0-1">
+          <item repeat="0-1"> und </item>
+          <ruleref uri="#Cardinal_1_to_99" />
+          <tag> out._value = out._value + rules.latest()._value*0.01; </tag>
+          <one-of>
+            <item> Cent </item>
+            <item> Cents </item>
+          </one-of>
+        </item>
+      </item>
+      <item>
+        <ruleref uri="#Cardinal_1_to_99" />
+        <tag> out._value = rules.latest()._value; </tag>
+      </item>
+      <item>
+        <ruleref uri="#Cardinal_1_to_99" />
+        <tag> out._value = rules.latest()._value*0.01; </tag>
+        <one-of>
+          <item> Cent </item>
+          <item> Cents </item>
+        </one-of>
+      </item>
+      <item>
+        <item repeat="0-1"> ein </item> hundert Euros <tag> out._value = 100.00; </tag></item>
+    </one-of>
+  </rule>
+  <!-- 
+  $Currency_Euro_upto_1000._value: float [0.00 ... 1000.00]
+  -->
+  <rule id="Currency_Euro_upto_1000" scope="public">
+    <example> zehn Euros siebzehn Cents </example>
+    <example> ein hundert Euros </example>
+    <example> ein tausend Euros </example>
+    <tag> out._value = 0.00; </tag>
+    <one-of>
+      <item>
+        <ruleref uri="#Cardinal_1_to_999" />
+        <tag> out._value = rules.latest()._value; </tag>
+        <one-of>
+          <item> Euro </item>
+          <item> Euros </item>
+        </one-of>
+        <item repeat="0-1">
+          <item repeat="0-1"> und </item>
+          <ruleref uri="#Cardinal_1_to_99" />
+          <tag> out._value = out._value + rules.latest()._value*0.01; </tag>
+          <one-of>
+            <item> Cent </item>
+            <item> Cents </item>
+          </one-of>
+        </item>
+      </item>
+      <item>
+        <ruleref uri="#Cardinal_1_to_999" />
+        <tag> out._value = rules.latest()._value; </tag>
+      </item>
+      <item>
+        <ruleref uri="#Cardinal_1_to_99" />
+        <tag> out._value = rules.latest()._value*0.01; </tag>
+        <one-of>
+          <item> Cent </item>
+          <item> Cents </item>
+        </one-of>
+      </item>
+      <item>
+        <item repeat="0-1"> ein </item> tausend Euros <tag> out._value = 100.00; </tag></item>
+    </one-of>
+  </rule>
+  <!-- 
+  $Currency_Euro_upto_10000._value: float [0.00 ... 10000.00]
+  -->
+  <rule id="Currency_Euro_upto_10000" scope="public">
+    <example> zehn Euros siebzehn Cents </example>
+    <example> ein hundert Euros </example>
+    <example> ein tausend Euros </example>
+    <example> zehn tausend Euros </example>
+    <tag> out._value = 0.00; </tag>
+    <one-of>
+      <item>
+        <ruleref uri="#Cardinal_1_to_9999" />
+        <tag> out._value = rules.latest()._value; </tag>
+        <one-of>
+          <item> Euro </item>
+          <item> Euros </item>
+        </one-of>
+        <item repeat="0-1">
+          <item repeat="0-1"> und </item>
+          <ruleref uri="#Cardinal_1_to_99" />
+          <tag> out._value = out._value + rules.latest()._value*0.01; </tag>
+          <one-of>
+            <item> Cent </item>
+            <item> Cents </item>
+          </one-of>
+        </item>
+      </item>
+      <item>
+        <ruleref uri="#Cardinal_1_to_9999" />
+        <tag> out._value = rules.latest()._value; </tag>
+      </item>
+      <item>
+        <ruleref uri="#Cardinal_1_to_99" />
+        <tag> out._value = rules.latest()._value*0.01; </tag>
+        <one-of>
+          <item> Cent </item>
+          <item> Cents </item>
+        </one-of>
+      </item>
+      <item>
+                zehn tausend Euros <tag> out._value = 100.00; </tag></item>
+    </one-of>
+  </rule>
+  <!--
+  Category: PhoneNumber_DE
+  Description: The PhoneNumber_DE rules are used to parse a DEU phone number including (optionally) the area code.
+  -->
+  <!-- 
+  $PhoneNumber_DE._value: string [3 ... 15 characters]
+  -->
+  <rule id="PhoneNumber_DE" scope="public">
+    <example> dreißig dreißig zwei sechzig zwei neun </example>
+    <tag> out._value = ''; </tag>
+    <item repeat="0-1">
+      <ruleref uri="#PhoneNumber_DE_AreaCode" />
+      <tag>
+                out.AreaCode = new Object();
+                out._value = out._value + rules.latest()._value;
+                out.AreaCode._value = rules.latest()._value;
+            </tag>
+    </item>
+    <ruleref uri="#PhoneNumber_DE_LocalNumber" />
+    <tag>
+            out.LocalNumber = new Object();
+            out._value = out._value + rules.latest()._value;
+            out.LocalNumber._value = rules.latest()._value;
+        </tag>
+  </rule>
+  <!--
+  $PhoneNumber_DE._value_with_Extension: string [3 ... 19 characters]
+  -->
+  <rule id="PhoneNumber_DE_with_Extension" scope="public">
+    <example> dreißig dreißig zwei sechzig zwei neun Nebenstelle zwei zwei und zwanzig </example>
+    <tag> out._value = ''; </tag>
+    <one-of>
+    	<item>
+      		<ruleref uri="#PhoneNumber_DE_AreaCode" />
+	        <tag>
+          	      out.AreaCode = new Object();
+                      out._value = out._value + rules.latest()._value;
+                      out.AreaCode._value = rules.latest()._value;
+	        </tag>
+	        <ruleref uri="#PhoneNumber_DE_LocalNumber" />
+ 	        <tag>
+            	      out.LocalNumber = new Object();
+	              out._value = out._value + rules.latest()._value;
+                      out.LocalNumber._value = rules.latest()._value;
+	        </tag>
+	</item>
+    	<item>
+      		<ruleref uri="#PhoneNumber_DE_AreaCode" />
+	        <tag>
+          	      out.AreaCode = new Object();
+                      out._value = out._value + rules.latest()._value;
+                      out.AreaCode._value = rules.latest()._value;
+	        </tag>
+	        <ruleref uri="#PhoneNumber_DE_LocalNumber" />
+ 	        <tag>
+            	      out.LocalNumber = new Object();
+	              out._value = out._value + rules.latest()._value;
+                      out.LocalNumber._value = rules.latest()._value;
+	        </tag>
+	        <one-of>
+        		<item>Apparat</item>
+		        <item>Nebenstelle</item>
+		        <item>Klappe</item>
+	        </one-of>
+      		<ruleref uri="#PhoneNumber_DE_Extension" />
+	        <tag>
+          	      out.Extension = new Object();
+                      out._value = out._value + "x" + rules.latest()._value;
+                      out.Extension._value = rules.latest()._value;
+	        </tag>
+	</item>
+    	<item>
+	        <ruleref uri="#PhoneNumber_DE_LocalNumber" />
+ 	        <tag>
+            	      out.LocalNumber = new Object();
+	              out._value = out._value + rules.latest()._value;
+                      out.LocalNumber._value = rules.latest()._value;
+	        </tag>
+	</item>
+    	<item>
+	        <ruleref uri="#PhoneNumber_DE_LocalNumber" />
+ 	        <tag>
+            	      out.LocalNumber = new Object();
+	              out._value = out._value + rules.latest()._value;
+                      out.LocalNumber._value = rules.latest()._value;
+	        </tag>
+	        <one-of>
+        		<item>Apparat</item>
+		        <item>Nebenstelle</item>
+		        <item>Klappe</item>
+	        </one-of>
+      		<ruleref uri="#PhoneNumber_DE_Extension" />
+	        <tag>
+          	      out.Extension = new Object();
+                      out._value = out._value + "x" + rules.latest()._value;
+                      out.Extension._value = rules.latest()._value;
+	        </tag>
+    </item>
+   	<item>
+      		<ruleref uri="#PhoneNumber_DE_Extension" />
+	        <tag>
+          	      out.Extension = new Object();
+                      out._value = out._value + "x" + rules.latest()._value;
+                      out.Extension._value = rules.latest()._value;
+	        </tag>
+	</item>
+    </one-of>
+  </rule>
+  <!-- 
+  $PhoneNumber_DE_AreaCode._value: string [3 - 6 characters]
+  -->
+  <rule id="PhoneNumber_DE_AreaCode" scope="public">
+    <example> null ein hundert </example>
+    <item> null </item>
+    <tag> out._value = '0'; </tag>
+    <one-of>
+      <item>
+        <ruleref uri="#DigitBlock_2Digits" />
+        <tag> out._value = out._value + rules.latest()._value; </tag>
+        <item repeat="0-1">
+          <ruleref uri="#DigitBlock_3Digits" />
+          <tag> out._value = out._value + rules.latest()._value; </tag>
+        </item>
+      </item>
+      <item>
+        <ruleref uri="#DigitBlock_3Digits" />
+        <tag> out._value = out._value + rules.latest()._value; </tag>
+        <item repeat="0-1">
+          <ruleref uri="#DigitBlock_2Digits" />
+          <tag> out._value = out._value + rules.latest()._value; </tag>
+        </item>
+      </item>
+      <item>
+        <ruleref uri="#DigitBlock_4Digits" />
+        <tag> out._value = out._value + rules.latest()._value; </tag>
+      </item>
+    </one-of>
+  </rule>
+  <!--  $PhoneNumber_DE_LocalNumber._value: string [3 - 9 characters] -->
+  <rule id="PhoneNumber_DE_LocalNumber" scope="public">
+    <example> dreißig dreißig zwei sechzig zwei sechs </example>
+    <tag> out._value = ''; </tag>
+    <one-of>
+        <item>
+          <ruleref uri="#Cardinal_0_to_9" />
+	  <tag> out._value = out._value + rules.latest()._value; </tag>
+          <ruleref uri="#DigitBlock_2Digits" />
+          <tag>
+               out._value = out._value + rules.latest()._value;
+          </tag>
+        </item>
+        <item>
+          <ruleref uri="#DigitBlock_2Digits" />
+          <tag>
+               out._value = out._value + rules.latest()._value;
+          </tag>
+          <ruleref uri="#DigitBlock_2Digits" />
+          <tag>
+               out._value = out._value + rules.latest()._value;
+          </tag>
+        </item>
+      <item>
+        <ruleref uri="#DigitBlock_2Digits" />
+        <tag> out._value = out._value + rules.latest()._value; </tag>
+        <ruleref uri="#DigitBlock_3Digits" />
+        <tag> out._value = out._value + rules.latest()._value; </tag>
+      </item>
+      <item>
+        <ruleref uri="#DigitBlock_3Digits" />
+        <tag> out._value = out._value + rules.latest()._value; </tag>
+        <ruleref uri="#DigitBlock_2Digits" />
+        <tag> out._value = out._value + rules.latest()._value; </tag>
+      </item>
+      <item>
+        <ruleref uri="#DigitBlock_2Digits" />
+        <tag> out._value = out._value + rules.latest()._value; </tag>
+        <ruleref uri="#DigitBlock_2Digits" />
+        <tag> out._value = out._value + rules.latest()._value; </tag>
+        <ruleref uri="#DigitBlock_2Digits" />
+        <tag> out._value = out._value + rules.latest()._value; </tag>
+      </item>
+      <item>
+        <ruleref uri="#DigitBlock_2Digits" />
+        <tag> out._value = out._value + rules.latest()._value; </tag>
+        <ruleref uri="#DigitBlock_2Digits" />
+        <tag> out._value = out._value + rules.latest()._value; </tag>
+        <ruleref uri="#DigitBlock_3Digits" />
+        <tag> out._value = out._value + rules.latest()._value; </tag>
+      </item>
+      <item>
+        <ruleref uri="#DigitBlock_2Digits" />
+        <tag> out._value = out._value + rules.latest()._value; </tag>
+        <ruleref uri="#DigitBlock_3Digits" />
+        <tag> out._value = out._value + rules.latest()._value; </tag>
+        <ruleref uri="#DigitBlock_2Digits" />
+        <tag> out._value = out._value + rules.latest()._value; </tag>
+      </item>
+      <item>
+        <ruleref uri="#DigitBlock_3Digits" />
+        <tag> out._value = out._value + rules.latest()._value; </tag>
+        <ruleref uri="#DigitBlock_2Digits" />
+        <tag> out._value = out._value + rules.latest()._value; </tag>
+        <ruleref uri="#DigitBlock_2Digits" />
+        <tag> out._value = out._value + rules.latest()._value; </tag>
+      </item>
+      <item>
+        <ruleref uri="#DigitBlock_2Digits" />
+        <tag> out._value = out._value + rules.latest()._value; </tag>
+        <ruleref uri="#DigitBlock_2Digits" />
+        <tag> out._value = out._value + rules.latest()._value; </tag>
+        <ruleref uri="#DigitBlock_2Digits" />
+        <tag> out._value = out._value + rules.latest()._value; </tag>
+        <ruleref uri="#DigitBlock_2Digits" />
+        <tag> out._value = out._value + rules.latest()._value; </tag>
+      </item>
+      <item>
+        <ruleref uri="#DigitBlock_2Digits" />
+        <tag> out._value = out._value + rules.latest()._value; </tag>
+        <ruleref uri="#DigitBlock_2Digits" />
+        <tag> out._value = out._value + rules.latest()._value; </tag>
+        <ruleref uri="#DigitBlock_2Digits" />
+        <tag> out._value = out._value + rules.latest()._value; </tag>
+        <ruleref uri="#DigitBlock_3Digits" />
+        <tag> out._value = out._value + rules.latest()._value; </tag>
+      </item>
+      <item>
+        <ruleref uri="#DigitBlock_2Digits" />
+        <tag> out._value = out._value + rules.latest()._value; </tag>
+        <ruleref uri="#DigitBlock_2Digits" />
+        <tag> out._value = out._value + rules.latest()._value; </tag>
+        <ruleref uri="#DigitBlock_3Digits" />
+        <tag> out._value = out._value + rules.latest()._value; </tag>
+        <ruleref uri="#DigitBlock_2Digits" />
+        <tag> out._value = out._value + rules.latest()._value; </tag>
+      </item>
+      <item>
+        <ruleref uri="#DigitBlock_2Digits" />
+        <tag> out._value = out._value + rules.latest()._value; </tag>
+        <ruleref uri="#DigitBlock_3Digits" />
+        <tag> out._value = out._value + rules.latest()._value; </tag>
+        <ruleref uri="#DigitBlock_2Digits" />
+        <tag> out._value = out._value + rules.latest()._value; </tag>
+        <ruleref uri="#DigitBlock_2Digits" />
+        <tag> out._value = out._value + rules.latest()._value; </tag>
+      </item>
+      <item>
+        <ruleref uri="#DigitBlock_3Digits" />
+        <tag> out._value = out._value + rules.latest()._value; </tag>
+        <ruleref uri="#DigitBlock_2Digits" />
+        <tag> out._value = out._value + rules.latest()._value; </tag>
+        <ruleref uri="#DigitBlock_2Digits" />
+        <tag> out._value = out._value + rules.latest()._value; </tag>
+        <ruleref uri="#DigitBlock_2Digits" />
+        <tag> out._value = out._value + rules.latest()._value; </tag>
+      </item>
+    </one-of>
+  </rule>
+
+  <!--  $PhoneNumber_DE_Extension._value: string [3 - 5 characters] -->
+  <rule id="PhoneNumber_DE_Extension" scope="public">
+    <example> zwei zwei sechs </example>
+    <example> zwei sechs und zwanzig </example>
+    <tag> out._value = ''; </tag>
+    <one-of>
+        <item>
+          <ruleref uri="#Cardinal_0_to_9" />
+	  <tag> out._value = out._value + rules.latest()._value; </tag>
+          <ruleref uri="#DigitBlock_2Digits" />
+          <tag>
+                        out._value = out._value + rules.latest()._value;
+          </tag>
+        </item>
+        <item>
+          <ruleref uri="#DigitBlock_2Digits" />
+          <tag>
+                        out._value = out._value + rules.latest()._value;
+          </tag>
+          <ruleref uri="#DigitBlock_2Digits" />
+          <tag>
+                        out._value = out._value + rules.latest()._value;
+          </tag>
+        </item>
+        <item>
+          <ruleref uri="#Cardinal_0_to_9" />
+	  <tag> out._value = out._value + rules.latest()._value; </tag>
+          <ruleref uri="#DigitBlock_2Digits" />
+          <tag>
+                        out._value = out._value + rules.latest()._value;
+          </tag>
+          <ruleref uri="#DigitBlock_2Digits" />
+          <tag>
+                        out._value = out._value + rules.latest()._value;
+          </tag>
+        </item>
+    </one-of>
+  </rule>
+
+</grammar>
