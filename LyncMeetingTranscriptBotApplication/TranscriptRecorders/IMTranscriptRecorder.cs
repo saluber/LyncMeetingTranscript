@@ -12,6 +12,8 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
 {
     class IMTranscriptRecorder : MediaTranscriptRecorder
     {
+        private static TranscriptRecorderType _type = TranscriptRecorderType.InstantMessage;
+        private TranscriptRecorderState _state = TranscriptRecorderState.Initialized;
         private TranscriptRecorder _transcriptRecorder;
 
         private EventHandler<CallStateChangedEventArgs> _imCallStateChangedEventHandler;
@@ -30,6 +32,16 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
         public TranscriptRecorder TranscriptRecorder
         {
             get { return _transcriptRecorder; }
+        }
+
+        public override TranscriptRecorderType RecorderType
+        {
+            get { return _type; }
+        }
+
+        public override TranscriptRecorderState State
+        {
+            get { return _state; }
         }
 
         public InstantMessagingCall InstantMessagingCall
@@ -66,22 +78,36 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
 
             _waitForIMCallAccepted.Reset();
             _waitForIMFlowStateChangedToActiveCompleted.Reset();
+            _state = TranscriptRecorderState.Initialized;
         }
 
         public override void Shutdown()
         {
+            if (_state == TranscriptRecorderState.Terminated)
+            {
+                return;
+            }
+
             TerminateCall();
+            _state = TranscriptRecorderState.Terminated;
+
+            // TODO: Shutdown message
+
+            _transcriptRecorder.OnMediaTranscriptRecorderTerminated(this);
+            _transcriptRecorder = null;
         }
 
         #region Event Handlers
 
-        public void On_InstantMessagingCall_Received(CallReceivedEventArgs<InstantMessagingCall> e)
+        public void InstantMessagingCall_Received(CallReceivedEventArgs<InstantMessagingCall> e)
         {
             if (_instantMessagingCall != null)
             {
                 Console.WriteLine("Warn: IMCall already exists for this Conversation. Shutting down previous call...");
                 TerminateCall();
             }
+
+            _state = TranscriptRecorderState.Active;
 
             // Type checking was done by the platform; no risk of this being any 
             // type other than the type expected.
@@ -179,11 +205,11 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             // On an incoming Instant Message, print the contents to the console.
             Console.WriteLine(e.Sender.Uri + " said: " + e.TextBody);
 
-            Message m = new Message(e.TextBody, e.Sender.DisplayName, e.Sender.Uri, DateTime.Now,
+            Message m = new Message(e.TextBody, e.Sender.DisplayName, e.Sender.UserAtHost, e.Sender.Uri, DateTime.Now,
                 _instantMessagingCall.Conversation.Id, _instantMessagingCall.Conversation.ConferenceSession.ConferenceUri,
                 MessageModality.InstantMessage, MessageDirection.Outgoing);
 
-            this._transcriptRecorder.AddMessage(m);
+            this._transcriptRecorder.OnMessageReceived(m);
 
             // call top level event handler
             if (_imFlowMessageReceivedEventHandler != null)

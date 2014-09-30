@@ -8,15 +8,11 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Shapes;
-using Microsoft.Lync.Model;
-using Microsoft.Lync.Model.Conversation;
 
-namespace LyncMeetingTranscriptClientApplication.Service
+namespace LyncMeetingTranscriptClientApplication.Model
 {
-    public class ConversationService
+    public class Sender
     {
-        public ConversationService()
-        {
-        }
+
     }
 }

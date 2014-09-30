@@ -10,13 +10,38 @@ using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Shapes;
 
-using LyncMeetingTranscriptClientApplication.ViewModel;
+using LyncMeetingTranscriptClientApplication.ViewModels;
 
 namespace LyncMeetingTranscriptClientApplication
 {
     public partial class App : Application
     {
+        private const string _appId = "{97AD7B8A-3220-4855-8D1E-E70BB0973C4D}";
+
+        /// <summary>
+        /// Service name.
+        /// </summary>
+        private const string ServiceName = "LyncMeetingTranscriptService.svc";
+
+        // Creates an instance of IsolatedStorageSettings used to store the conference/conversation transcript history
+        //private IsolatedStorageFile _userSettings;
+        private const string TranscriptOutputFolderPathKey = "OutputFolderPath";
+        private const string ReadInstantMessagesKey = "ReadInstantMessagesKey";
+
+        private static string _outputFolderPath = "C:\\LyncMeetingTranscriptLogs";
+
         private static MainViewModel _viewModel;
+
+        public static string AppId
+        {
+            get { return _appId; }
+        }
+
+        public static string TranscriptOutputFolderPath
+        {
+            get { return _outputFolderPath; }
+            set { _outputFolderPath = value; }
+        }
 
         public static MainViewModel MainViewModel
         {
@@ -36,8 +61,6 @@ namespace LyncMeetingTranscriptClientApplication
         {
             //creates the main view model
             _viewModel = new MainViewModel();
-            MainPage mainPage = new MainPage();
-            mainPage.DataContext = _viewModel;
 
             this.RootVisual = new MainPage();
         }

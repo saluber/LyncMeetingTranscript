@@ -32,7 +32,9 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
-    <None Include="App.config" />
+    <None Include="App.config">
+      <SubType>Designer</SubType>
+    </None>
     <None Include="Resources\de-DE.grxml" />
     <None Include="Resources\en-GB.grxml" />
     <None Include="Resources\en-US.grxml" />
@@ -46,6 +48,8 @@
     <Compile Include="MeetingTranscriptSession.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="TranscriptRecorders\AVTranscriptRecorder.cs" />
+    <Compile Include="TranscriptRecorders\ConferenceTranscriptRecorder.cs" />
+    <Compile Include="TranscriptRecorders\ConversationTranscriptRecorder.cs" />
     <Compile Include="TranscriptRecorders\IMTranscriptRecorder.cs" />
     <Compile Include="TranscriptRecorders\Message.cs" />
     <Compile Include="TranscriptRecorders\SpeechRecognizer.cs" />

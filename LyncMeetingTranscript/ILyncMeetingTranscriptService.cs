@@ -9,7 +9,7 @@ using System.Text;
 namespace LyncMeetingTranscript
 {
     [ServiceContract]
-    public interface IService1
+    public interface ILyncMeetingTranscriptService
     {
 
         [OperationContract]

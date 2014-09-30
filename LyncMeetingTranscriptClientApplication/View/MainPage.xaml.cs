@@ -17,20 +17,18 @@ using Microsoft.Lync.Model.Conversation;
 
 using LyncMeetingTranscriptClientApplication.Model;
 using LyncMeetingTranscriptClientApplication.Service;
-using LyncMeetingTranscriptClientApplication.ViewModel;
+using LyncMeetingTranscriptClientApplication.ViewModels;
 
 namespace LyncMeetingTranscriptClientApplication
 {
     public partial class MainPage : UserControl
     {
-        private static string _appId = "{97AD7B8A-3220-4855-8D1E-E70BB0973C4D}";
+        private MainViewModel _viewModel;
+        private TranslationService _translationService;
         private ConversationService _conversationService;
+
         private LyncClient _lyncClient;
         private Conversation _conversation;
-        private Boolean _startConversation = false;
-        private Contact _remoteContact;
-
-        private MainViewModel _viewModel;
 
         public MainPage()
         {
@@ -39,27 +37,47 @@ namespace LyncMeetingTranscriptClientApplication
 
             try
             {
+                _translationService = new TranslationService();
+                _conversationService = new ConversationService();
+
                 // Get the instance of LyncClient and subscribe to outgoing/incoming conversation events
                 _lyncClient = LyncClient.GetClient();
                 _lyncClient.StateChanged += new EventHandler<ClientStateChangedEventArgs>(LyncClient_StateChanged);
-                _lyncClient.ConversationManager.ConversationAdded +=
-                    new EventHandler<Microsoft.Lync.Model.Conversation.ConversationManagerEventArgs>(
-                    ConversationManager_ConversationAdded);
             }
             catch (ClientNotFoundException) { Console.WriteLine("Lync client was not found on startup"); }
             catch (LyncClientException lce) { MessageBox.Show("Lyncclientexception: " + lce.Message); }
         }
 
+        private void ShowIncomingTranscriptMessage(Message message)
+        {
+            WriteMessageToTranscript(message);
+        }
+
+        private void WriteMessageToTranscript(Message message)
+        {
+            //adds a line for the received or sent message
+            TranscriptItem lineItem = new TranscriptItem(message.TimeStamp, message.SenderDisplayName, message.SenderUri, message.Modality.ToString(), message.Content);
+            _viewModel.MessageHistory.Add(lineItem);
+
+            //manually scrows down to the last added message
+            listBoxHistory.UpdateLayout();
+            scrollViewerMessageLog.ScrollToVerticalOffset(listBoxHistory.ActualHeight);
+        }
+
+        #region Event Handlers
+
         private void UserControl_Loaded(object sender, RoutedEventArgs e)
         {
             try
             {
-                if (_conversation == null)
-                {
-                    _conversation = _lyncClient.ConversationManager.Conversations[0];
-                }
+                //gets the conversation this translator is associated with
+                _conversation = (Conversation)LyncClient.GetHostingConversation();
 
-                _conversationService = new ConversationService();
+                // Subscribe to conversation events
+                _conversation.InitialContextReceived += Conversation_InitialContextReceived;
+                _conversation.ContextDataReceived += Conversation_ContextDataReceived;
+                _conversation.StateChanged += Conversation_StateChanged;
+
             }
             catch (Exception exception)
             {
@@ -69,34 +87,23 @@ namespace LyncMeetingTranscriptClientApplication
 
         void LyncClient_StateChanged(object sender, ClientStateChangedEventArgs e)
         {
-            if (_startConversation == true && e.NewState == ClientState.SignedIn)
+            if (e.NewState == ClientState.ShuttingDown)
             {
-                _conversation = _lyncClient.ConversationManager.AddConversation();
+                // TODO: Handle Lync Client state changes
             }
         }
 
-        void ConversationManager_ConversationAdded(object sender, Microsoft.Lync.Model.Conversation.ConversationManagerEventArgs e)
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        void Conversation_StateChanged(object sender, Microsoft.Lync.Model.Conversation.ConversationStateChangedEventArgs e)
         {
-            /*
-            if (_conversation == null)
+            if (e.NewState == ConversationState.Terminated)
             {
-                _conversation = e.Conversation;
+                // TODO: Handle conversation state change events
             }
-
-            _conversation.ParticipantAdded += Conversation_ParticipantAdded;
-            if (_conversation.Modalities[ModalityTypes.InstantMessage].State != ModalityState.Notified)
-            {
-                // Get the Contact object for the person initiating the conversation.
-                Contact inviter = e.Conversation.Properties[ConversationProperty.Inviter] as Contact;
-                _remoteContact = _lyncClient.ContactManager.GetContactByUri(inviter.Uri);
-                _conversation.AddParticipant(_remoteContact);
-            }
-
-            e.Conversation.InitialContextReceived += Conversation_InitialContextReceived;
-            e.Conversation.ContextDataReceived += Conversation_ContextDataReceived;
-            e.Conversation.StateChanged += Conversation_StateChanged;
-            ((InstantMessageModality)e.Conversation.Modalities[ModalityTypes.InstantMessage]).InstantMessageReceived += MainWindow_InstantMessageReceived;
-             */
         }
 
         /// <summary>
@@ -107,15 +114,12 @@ namespace LyncMeetingTranscriptClientApplication
         /// <param name="e"></param>
         void Conversation_InitialContextReceived(object sender, Microsoft.Lync.Model.Conversation.InitialContextEventArgs e)
         {
-            if (e.ApplicationId != _appId)
+            if (e.ApplicationId != App.AppId)
             {
                 return;
             }
-            /*
-            this.Dispatcher.Invoke(
-                new ControlContentUpdateDelegate(ControlContentUpdate),
-                new object[] { Inbound_Listbox, e.ApplicationData.ToString() });
-            */
+
+            // Do app setup stuff
         }
 
         /// <summary>
@@ -125,55 +129,22 @@ namespace LyncMeetingTranscriptClientApplication
         /// <param name="e"></param>
         void Conversation_ContextDataReceived(object sender, ContextEventArgs e)
         {
-            /*
-            //Does the application Id sent with the context data match the application GUID of this 
-            //application?
-            if (e.ApplicationId != _AppId)
+            // Does the application Id sent with the context data match the application GUID of this 
+            // application?
+            if (e.ApplicationId != App.AppId)
             {
                 return;
             }
 
-            if (e.ContextDataType.ToLower() == "text/plain")
-            {
-                this.Dispatcher.Invoke(
-                    new ControlContentUpdateDelegate(ControlContentUpdate),
-                    new object[] { Inbound_Listbox, e.ContextData.ToString() });
-            }
-             */
-        }
-
-        private void conversationService_MessageRecived(MessageContext message)
-        {
+            // TODO: Parse transcript item(s) from context contents
+            /*
             this.Dispatcher.BeginInvoke(() =>
             {
                 ShowIncomingTranscriptMessage(message);
             });
-
-            /*
-            if (_viewModel.ReadInstantMessages && (message.Modality == MessageModality.InstantMessage)
-                && (message.Direction == MessageDirection.Incoming))
-            {
-                // Use Speech Synthesizer to speak message text
-            }
-             */
+            */
         }
 
-        private void ShowIncomingTranscriptMessage(MessageContext message)
-        {
-            WriteMessageToTranscript(message);
-        }
-
-        private void WriteMessageToTranscript(MessageContext message)
-        {
-            //adds a line for the received or sent message
-            TranscriptItem lineItem = new TranscriptItem(message.MessageTime, message.ParticipantName, message.ParticipantUri, message.Modality.ToString(), message.Message);
-            _viewModel.MessageHistory.Add(lineItem);
-            listBoxHistory.UpdateLayout();
-            scrollViewerMessageLog.ScrollToVerticalOffset(listBoxHistory.ActualHeight);
-
-            //manually scrows down to the last added message
-            listBoxHistory.UpdateLayout();
-            scrollViewerMessageLog.ScrollToVerticalOffset(listBoxHistory.ActualHeight);
-        }
+        #endregion // Event Handlers
     }
 }

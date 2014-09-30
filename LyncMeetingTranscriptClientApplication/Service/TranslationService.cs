@@ -13,6 +13,8 @@ namespace LyncMeetingTranscriptClientApplication.Service
 {
     public class TranslationService
     {
-
+        public TranslationService()
+        {
+        }
     }
 }

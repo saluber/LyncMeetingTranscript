@@ -10,26 +10,35 @@ using Microsoft.Rtc.Signaling;
 
 namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
 {
+    public enum TranscriptRecorderType { AudioVideo, InstantMessage, Conversation, Conference }
+
+    public enum TranscriptRecorderState { Initialized, Active, Terminated }
+
     public abstract class MediaTranscriptRecorder
     {
         public abstract void Shutdown();
+
+        public abstract TranscriptRecorderType RecorderType { get; }
+
+        public abstract TranscriptRecorderState State { get; }
     }
 
     public class TranscriptRecorder
     {
+        private TranscriptRecorderState _state = TranscriptRecorderState.Initialized;
+
         // TODO: Transmit messages to Lync client app over ConversationContextChannel
         private ConversationContextChannel _channel;
-        private Conference _conference;
         private Conversation _conversation;
 
-        private List<MediaTranscriptRecorder> _mediaCallRecorders;
+        private List<MediaTranscriptRecorder> _transcriptRecorders;
         private List<Message> _messages;
 
         private AutoResetEvent _waitForConversationTerminated = new AutoResetEvent(false);
 
-        public Conference Conference
+        public TranscriptRecorderState State
         {
-            get { return _conference; }
+            get { return _state; }
         }
 
         public Conversation Conversation
@@ -46,39 +55,43 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
 
         public TranscriptRecorder(ConferenceInvitationReceivedEventArgs e)
         {
+            _transcriptRecorders = new List<MediaTranscriptRecorder>();
+            _messages = new List<Message>();
+            _state = TranscriptRecorderState.Active;
+
             // TODO
         }
 
         public TranscriptRecorder(CallReceivedEventArgs<AudioVideoCall> e)
         {
-            _mediaCallRecorders = new List<MediaTranscriptRecorder>();
+            _transcriptRecorders = new List<MediaTranscriptRecorder>();
             _messages = new List<Message>();
+            _state = TranscriptRecorderState.Active;
             _conversation = e.Call.Conversation;
 
-            RegisterConversationEvents();
-
+            // Log AV conversation started
             ConversationParticipant caller = e.RemoteParticipant;
-            Message m = new Message("AudioVideo Conversation/Conference Started.", caller.Uri, caller.DisplayName, DateTime.Now,
+            Message m = new Message("AudioVideo Conversation/Conference Started.", caller.DisplayName, caller.UserAtHost, caller.Uri, DateTime.Now,
                 _conversation.Id, _conversation.ConferenceSession.ConferenceUri,
                 MessageModality.ConferenceInfo, MessageDirection.Outgoing);
-            this.AddMessage(m);
+            this.OnMessageReceived(m);
 
             AddAVIncomingCall(e);
         }
 
         public TranscriptRecorder(CallReceivedEventArgs<InstantMessagingCall> e)
         {
-            _mediaCallRecorders = new List<MediaTranscriptRecorder>();
+            _transcriptRecorders = new List<MediaTranscriptRecorder>();
             _messages = new List<Message>();
+            _state = TranscriptRecorderState.Active;
             _conversation = e.Call.Conversation;
 
-            RegisterConversationEvents();
-
+            // Log IM conversation started
             ConversationParticipant caller = e.RemoteParticipant;
-            Message m = new Message("InstantMessaging Conversation/Conference Started.", caller.Uri, caller.DisplayName, DateTime.Now,
+            Message m = new Message("InstantMessaging Conversation/Conference Started.", caller.DisplayName, caller.UserAtHost, caller.Uri, DateTime.Now,
                 _conversation.Id, _conversation.ConferenceSession.ConferenceUri,
                 MessageModality.ConferenceInfo, MessageDirection.Outgoing);
-            this.AddMessage(m);
+            this.OnMessageReceived(m);
 
             AddIMIncomingCall(e);
         }
@@ -92,38 +105,46 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             AVTranscriptRecorder a = new AVTranscriptRecorder(this);
 
             ConversationParticipant caller = e.RemoteParticipant;
-            Message m = new Message("AudioVideo Conversation Participant Added.", caller.Uri, caller.DisplayName, DateTime.Now,
+            Message m = new Message("AudioVideo Conversation Participant Added.", caller.DisplayName,
+                caller.UserAtHost, caller.Uri, DateTime.Now,
                 _conversation.Id, _conversation.ConferenceSession.ConferenceUri,
                 MessageModality.ConversationInfo, MessageDirection.Outgoing);
-            this.AddMessage(m);
+            this.OnMessageReceived(m);
 
-            _mediaCallRecorders.Add(a);
+            _transcriptRecorders.Add(a);
 
             a.AudioVideoCall_Received(e);
         }
 
         public void AddIMIncomingCall(CallReceivedEventArgs<InstantMessagingCall> e)
         {
+            if (_state != TranscriptRecorderState.Active)
+            {
+                Console.WriteLine("Warn: Unexpected TranscriptRecorder state: " + _state.ToString());
+            }
+
             IMTranscriptRecorder i = new IMTranscriptRecorder(this);
 
             ConversationParticipant caller = e.RemoteParticipant;
-            Message m = new Message("InstantMessaging Conversation Participant Added.", caller.Uri, caller.DisplayName, DateTime.Now,
+            Message m = new Message("InstantMessaging Conversation Participant Added.", caller.DisplayName, 
+                caller.UserAtHost, caller.Uri, DateTime.Now,
                 _conversation.Id, _conversation.ConferenceSession.ConferenceUri,
                 MessageModality.ConversationInfo, MessageDirection.Outgoing);
-            this.AddMessage(m);
+            this.OnMessageReceived(m);
 
-            _mediaCallRecorders.Add(i);
+            _transcriptRecorders.Add(i);
 
-            i.On_InstantMessagingCall_Received(e);
+            i.InstantMessagingCall_Received(e);
         }
 
-        public void AddMessage(Message m)
+        internal void JoinIncomingInvitedConference()
         {
-            Console.WriteLine("Message logged: " + m.ToString());
 
-            // TODO: Write message to Lync client app or output file
+        }
 
-            _messages.Add(m);
+        internal void JoinIncomingEscalatedConference()
+        {
+
         }
 
         public string GetFullTranscript(bool print = false)
@@ -144,194 +165,74 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
 
         public void Shutdown()
         {
-            foreach (MediaTranscriptRecorder m in _mediaCallRecorders)
+            if (_state == TranscriptRecorderState.Terminated)
             {
-                m.Shutdown();
+                return;
             }
+            _state = TranscriptRecorderState.Terminated;
 
-            _mediaCallRecorders.Clear();
+            lock (_transcriptRecorders)
+            {
+                foreach (MediaTranscriptRecorder m in _transcriptRecorders)
+                {
+                    m.Shutdown();
+                }
+                _transcriptRecorders.Clear();
+            }
 
             if (_conversation != null)
             {
-                Message m = new Message("Conversation shutting down.", _conversation.LocalParticipant.Uri,
-                    _conversation.LocalParticipant.DisplayName, DateTime.Now,
+                Message m = new Message("Conversation shutting down.", _conversation.LocalParticipant.DisplayName,
+                    _conversation.LocalParticipant.UserAtHost, _conversation.LocalParticipant.Uri, DateTime.Now,
                     _conversation.Id, _conversation.ConferenceSession.ConferenceUri,
                     MessageModality.ConversationInfo, MessageDirection.Outgoing);
-                this.AddMessage(m);
+                this.OnMessageReceived(m);
 
-                _conversation.BeginTerminate(ConversationTerminated, _conversation);
-                UnregisterConversationEvents();
-
+                _conversation.BeginTerminate(EndTerminateConversation, _conversation);
                 //_waitForConversationTerminated.WaitOne();
                 _conversation = null;
             }
-
-            _conference = null;
         }
 
         #endregion // Public Methods
+
+        internal void OnMessageReceived(Message m)
+        {
+            Console.WriteLine("Message logged: " + m.ToString());
+
+            // TODO: Write message to Lync client app or output file
+
+            _messages.Add(m);
+        }
 
         internal void OnMediaTranscriptRecorderError()
         {
             // TODO: Logic to handle errors that can happen in indiviual recorders/modality calls
         }
 
-        internal void OnTerminated(MediaTranscriptRecorder terminatedRecorder)
+        internal void OnMediaTranscriptRecorderTerminated(MediaTranscriptRecorder terminatedRecorder)
         {
-            if (_mediaCallRecorders.Contains(terminatedRecorder))
+            if (_transcriptRecorders.Contains(terminatedRecorder))
             {
-                _mediaCallRecorders.Remove(terminatedRecorder);
+                _transcriptRecorders.Remove(terminatedRecorder);
             }
 
-            if (_mediaCallRecorders.Count == 0)
+            if (_transcriptRecorders.Count == 0)
             {
                 this.Shutdown();
             }
         }
 
-        internal void OnSubConversationAdded(Conversation subConversation)
+        internal void OnSubConversationAdded(Conversation subConversation, ConversationTranscriptRecorder addedRecorder)
         {
             // TODO: Start conversation recorder on sub conversation
+            _transcriptRecorders.Add(addedRecorder);
         }
 
-        internal void OnConferenceJoined(Conference conference)
+        internal void OnTranscriptModalityAdded(TranscriptRecorderType addedModality)
         {
-            // TODO: Start conference transcript recorder on conference
+
         }
-
-        #region ConferenceSession Event Handlers
-
-        //Just to record the state transitions in the console.
-        void ConferenceSession_StateChanged(object sender, StateChangedEventArgs<ConferenceSessionState> e)
-        {
-            ConferenceSession confSession = sender as ConferenceSession;
-
-            //Session participants allow for disambiguation.
-            Console.WriteLine("The conference session with Local Participant: " +
-                confSession.Conversation.LocalParticipant + " has changed state. " +
-                "The previous conference state was: " + e.PreviousState +
-                " and the current state is: " + e.State);
-            Console.WriteLine();
-
-            Message m = new Message("ConferenceSession state changed from " + e.PreviousState.ToString()
-                + " to new value: " + e.State.ToString() + ".",
-        confSession.Conversation.LocalParticipant.DisplayName, confSession.Conversation.LocalParticipant.Uri,
-        DateTime.Now, confSession.Conversation.Id, confSession.ConferenceUri, MessageModality.ConferenceInfo, MessageDirection.Outgoing);
-
-            AddMessage(m);
-        }
-
-        //Just to record the state transitions in the console.
-        void ConferenceSession_ParticipantEndpointAttendanceChanged(object sender,
-            ParticipantEndpointAttendanceChangedEventArgs<ConferenceParticipantEndpointProperties> e)
-        {
-            ConferenceSession confSession = sender as ConferenceSession;
-
-            // Log each participant as s/he gets added/deleted from the ConferenceSession's roster.
-            foreach (KeyValuePair<ParticipantEndpoint, ConferenceParticipantEndpointProperties> pair in e.Joined)
-            {
-                Console.WriteLine("{0} is notified of participant joining the conference: {1}",
-                    confSession.Conversation.LocalParticipant.UserAtHost,
-                    pair.Key.Participant.UserAtHost);
-
-            }
-
-            foreach (KeyValuePair<ParticipantEndpoint, ConferenceParticipantEndpointProperties> pair in e.Left)
-            {
-                Console.WriteLine("{0} is notified of participant leaving the conference: {1}",
-                    confSession.Conversation.LocalParticipant.UserAtHost,
-                    pair.Key.Participant.UserAtHost);
-            }
-
-            Console.WriteLine();
-        }
-
-        // Just to record the state transitions in the console.
-        void ConferenceSession_ParticipantEndpointPropertiesChanged(object sender,
-            ParticipantEndpointPropertiesChangedEventArgs<ConferenceParticipantEndpointProperties> e)
-        {
-            ConferenceSession confSession = sender as ConferenceSession;
-
-            Console.WriteLine(
-                "{0} is notified of ConferenceSession participant property change for user: {1}. Role:{2}, CanManageLobby:{3}, InLobby:{4}",
-                confSession.Conversation.LocalParticipant.UserAtHost,
-                e.ParticipantEndpoint.Participant.UserAtHost,
-                e.Properties.Role,
-                e.Properties.CanManageLobby,
-                e.Properties.IsInLobby);
-
-            Console.WriteLine();
-
-            // TODO: Conference message
-        }
-
-        // Just to record the state transitions in the console.
-        void ConferenceSession_PropertiesChanged(object sender,
-            PropertiesChangedEventArgs<ConferenceSessionProperties> e)
-        {
-            ConferenceSession confSession = sender as ConferenceSession;
-            string propertyValue = null;
-
-            foreach (string property in e.ChangedPropertyNames)
-            {
-                // Record all ConferenceSession property changes.
-                switch (property)
-                {
-                    case "AccessLevel":
-                        propertyValue = e.Properties.AccessLevel.ToString();
-                        break;
-                    case "AutomaticLeaderAssignment":
-                        propertyValue = e.Properties.AutomaticLeaderAssignment.ToString();
-                        break;
-                    case "ConferenceUri":
-                        propertyValue = e.Properties.ConferenceUri;
-                        break;
-                    case "Disclaimer":
-                        propertyValue = e.Properties.Disclaimer;
-                        break;
-                    case "DisclaimerTitle":
-                        propertyValue = e.Properties.DisclaimerTitle;
-                        break;
-                    case "HostingNetwork":
-                        propertyValue = e.Properties.HostingNetwork.ToString();
-                        break;
-                    case "LobbyBypass":
-                        propertyValue = e.Properties.LobbyBypass.ToString();
-                        break;
-                    case "Organizer":
-                        propertyValue = e.Properties.Organizer.UserAtHost;
-                        break;
-                    case "ParticipantData":
-                        propertyValue = e.Properties.ParticipantData;
-                        break;
-                    case "RecordingPolicy":
-                        propertyValue = e.Properties.RecordingPolicy.ToString();
-                        break;
-                    case "SchedulingTemplate":
-                        propertyValue = e.Properties.SchedulingTemplate.ToString();
-                        break;
-                    case "Subject":
-                        propertyValue = e.Properties.Subject;
-                        break;
-                }
-
-                Console.WriteLine("{0} is notified of ConferenceSession property change. {1}: {2}",
-                    confSession.Conversation.LocalParticipant.UserAtHost,
-                    property,
-                    propertyValue);
-
-                Message m = new Message("ConferenceSession property " + property + " changed to new value: " + propertyValue + ".",
-                    confSession.Conversation.LocalParticipant.DisplayName, confSession.Conversation.LocalParticipant.Uri,
-                    DateTime.Now, confSession.Conversation.Id, confSession.ConferenceUri, MessageModality.ConferenceInfo, MessageDirection.Outgoing);
-
-                AddMessage(m);
-            }
-
-            Console.WriteLine();
-        }
-
-        #endregion // Conference Event Handlers
-
 
         #region Callbacks
 
@@ -340,7 +241,7 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
         /// </summary>
         /// <param name="argument">The argument.</param>
         /// <remarks></remarks>
-        private void EndJoinConference(IAsyncResult argument)
+        public void EndJoinConference(IAsyncResult argument)
         {
             ConferenceSession conferenceSession = argument.AsyncState as ConferenceSession;
             Exception exception = null;
@@ -379,12 +280,7 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
 
                 // In case Bot was dragged into existing conversation or someone was dragged into existing conversation with Bot; 
                 // it will create ad-hoc conference and here is the place where we need to escalate current call into conference.
-
-                //if (this.escalateToConference)
-                //{
-                //    this.escalateToConference = false;
-                conferenceSession.Conversation.BeginEscalateToConference(this.EndEscalateConference, conferenceSession.Conversation);
-                //}
+                conferenceSession.Conversation.BeginEscalateToConference(this.EndEscalateConversation, conferenceSession.Conversation);
             }
         }
 
@@ -393,7 +289,7 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
         /// </summary>
         /// <param name="argument">The argument.</param>
         /// <remarks></remarks>
-        private void EndEscalateConference(IAsyncResult argument)
+        private void EndEscalateConversation(IAsyncResult argument)
         {
             Conversation conversation = argument.AsyncState as Conversation;
             Exception exception = null;
@@ -402,7 +298,7 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
                 conversation.EndEscalateToConference(argument);
                 Console.WriteLine("Conversation was escalated into conference");
 
-                RegisterConversationEvents();
+                //this.JoinIncomingEscalatedConference(conversation.ConferenceSession);
             }
             catch (OperationFailureException operationFailureException)
             {
@@ -429,8 +325,7 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             }
         }
 
-
-        private void ConversationTerminated(IAsyncResult ar)
+        private void EndTerminateConversation(IAsyncResult ar)
         {
             Conversation conv = ar.AsyncState as Conversation;
 

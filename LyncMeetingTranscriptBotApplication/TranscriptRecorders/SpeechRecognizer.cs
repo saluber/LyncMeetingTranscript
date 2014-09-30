@@ -253,10 +253,10 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             {
                 Conversation conv = _audioVideoFlow.Call.Conversation;
                 ConversationParticipant speaker = _audioVideoFlow.Call.RemoteEndpoint.Participant;
-                Message m = new Message(messageText, speaker.Uri, speaker.DisplayName, DateTime.Now, conv.Id,
+                Message m = new Message(messageText, speaker.DisplayName, speaker.UserAtHost, speaker.Uri, DateTime.Now, conv.Id,
                     conv.ConferenceSession.ConferenceUri, messageModality, MessageDirection.Outgoing);
 
-                this._transcriptRecorder.AddMessage(m);
+                this._transcriptRecorder.OnMessageReceived(m);
             }
         }
 

@@ -8,8 +8,7 @@ using System.Text;
 
 namespace LyncMeetingTranscript
 {
-    // NOTE: In order to launch WCF Test Client for testing this service, please select Service1.svc or Service1.svc.cs at the Solution Explorer and start debugging.
-    public class Service1 : IService1
+    public class LyncMeetingTranscriptService : ILyncMeetingTranscriptService
     {
         public string GetUsageOptions()
         {
@@ -33,7 +32,7 @@ namespace LyncMeetingTranscript
 
             // TODO: Start LyncMeetingTranscript session
 
-            return string.Format("Starting LyncMeetingTranscript for UserUri {0} on {1}Uri {2}",
+            return string.Format("Starting LyncMeetingTranscriptService for UserUri {0} on {1}Uri {2}",
                 meetingTranscriptSessionInfo.UserUri, (meetingTranscriptSessionInfo.TransferTypeValue == 2) ? "Conference" : "Conversation",
                 meetingTranscriptSessionInfo.TransferTargetURI);
         }
@@ -55,7 +54,7 @@ namespace LyncMeetingTranscript
 
             // TODO: Stop LyncMeetingTranscript session
 
-            return string.Format("Stopping LyncMeetingTranscript for UserUri {0} on {1}Uri {2}",
+            return string.Format("Stopping LyncMeetingTranscriptService for UserUri {0} on {1}Uri {2}",
                 meetingTranscriptSessionInfo.UserUri, (meetingTranscriptSessionInfo.TransferTypeValue == 2) ? "Conference" : "Conversation",
                 meetingTranscriptSessionInfo.TransferTargetURI);
         }

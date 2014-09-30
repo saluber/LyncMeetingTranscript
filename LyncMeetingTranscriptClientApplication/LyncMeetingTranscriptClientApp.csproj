@@ -100,15 +100,18 @@
     <Compile Include="App.xaml.cs">
       <DependentUpon>App.xaml</DependentUpon>
     </Compile>
+    <Compile Include="Model\ConferenceInfo.cs" />
+    <Compile Include="Model\ConversationInfo.cs" />
+    <Compile Include="Model\Sender.cs" />
     <Compile Include="Service\ConversationService.cs" />
     <Compile Include="View\MainPage.xaml.cs">
       <DependentUpon>MainPage.xaml</DependentUpon>
     </Compile>
-    <Compile Include="Model\ConversationMessage.cs" />
+    <Compile Include="Model\Message.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Service\TranslationService.cs" />
-    <Compile Include="ViewModel\MainViewModel.cs" />
-    <Compile Include="ViewModel\TranscriptItem.cs" />
+    <Compile Include="ViewModels\MainViewModel.cs" />
+    <Compile Include="ViewModels\TranscriptItem.cs" />
   </ItemGroup>
   <ItemGroup>
     <ApplicationDefinition Include="App.xaml">

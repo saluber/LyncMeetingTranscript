@@ -1,12 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using System.Xml;
 
-namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
+namespace LyncMeetingTranscriptClientApplication.Model
 {
     public enum MessageDirection { Incoming, Outgoing };
 
@@ -15,28 +13,24 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
     public class Message
     {
         /// <summary>
-        /// Gets or sets the display name of the sender.
+        /// Display name of the message sender.
         /// </summary>
-        /// <value>The display name of the sender.</value>
         public string SenderDisplayName { get; set; }
 
         /// <summary>
-        /// Gets or sets the sender alias.
+        /// Alias of the message sender.
         /// </summary>
-        /// <value>The sender alias.</value>
         public string SenderAlias { get; set; }
-        
+
         // TODO: Remove this or SenderAlias field
         /// <summary>
-        /// Gets or sets the sender alias.
+        /// Uri of the message sender.
         /// </summary>
-        /// <value>The sender alias.</value>
         public string SenderUri { get; set; }
 
         /// <summary>
-        /// Gets or sets the sender timestamp.
+        /// Time when the message was sent / received.
         /// </summary>
-        /// <value>When the message was sent.</value>
         public DateTime TimeStamp { get; set; }
 
         /// <summary>
@@ -51,7 +45,7 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
         /// Gets or sets the conference URI.
         /// </summary>
         /// <value>
-        /// The conference URI.
+        /// The conference URI
         /// </value>
         public string ConferenceUri { get; set; }
 
@@ -66,9 +60,8 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
         public MessageModality Modality { get; set; }
 
         /// <summary>
-        /// Gets or sets the content.
+        /// Content of the message.
         /// </summary>
-        /// <value>The content.</value>
         public string Content { get; set; }
 
         // TODO: Default constructors for error messages and conversation/conference "messages"
@@ -114,7 +107,7 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
         /// <param name="modality"></param>
         /// <param name="conversationId"></param>
         public Message(string content, MessageModality modality, string conversationId)
-            : this(content, String.Empty, String.Empty, String.Empty, DateTime.Now, conversationId, String.Empty, modality, MessageDirection.Outgoing)
+            : this(content, String.Empty, String.Empty, String.Empty, DateTime.Now, conversationId, String.Empty, modality, MessageDirection.Incoming)
         {
         }
 
@@ -126,7 +119,7 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
         /// <param name="conversationId"></param>
         /// <param name="conferenceUri"></param>
         public Message(string content, MessageModality modality, string conversationId, string conferenceUri)
-            : this(content, String.Empty, String.Empty, String.Empty, DateTime.Now, conversationId, conferenceUri, modality, MessageDirection.Outgoing)
+            : this(content, String.Empty, String.Empty, String.Empty, DateTime.Now, conversationId, conferenceUri, modality, MessageDirection.Incoming)
         {
         }
 
@@ -152,10 +145,6 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             this.Modality = modality;
             this.Direction = direction;
         }
-
-        // TODO: Print messages should take MessageModality into account
-        // Conversation/conversation/error messages should omit "sender" properties
-        // and use conversation id or conference Uri instead
 
         /// <summary>
         /// Returns a <see cref="System.String"/> that represents this instance.
