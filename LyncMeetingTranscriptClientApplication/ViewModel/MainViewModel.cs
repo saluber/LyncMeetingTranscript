@@ -37,6 +37,23 @@ namespace LyncMeetingTranscriptClientApplication.ViewModel
         /// </summary>
         public ObservableCollection<TranscriptItem> MessageHistory { get; set; }
 
+        /// <summary>
+        /// Adds the message to log.
+        /// </summary>
+        /// <param name="message">The message.</param>
+        public static void AddMessageToLog(Message message)
+        {
+            if (message != null)
+            {
+                _messages.Add(message);
+            }
+        }
+
+        public static void ClearMessages()
+        {
+            _messages.Clear();
+        }
+
         public string TranscriptOutputFolderPath
         {
             get
