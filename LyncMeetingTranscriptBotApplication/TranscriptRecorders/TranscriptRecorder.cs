@@ -28,10 +28,16 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
         private TranscriptRecorderState _state = TranscriptRecorderState.Initialized;
 
         // TODO: Transmit messages to Lync client app over ConversationContextChannel
-        private ConversationContextChannel _channel;
+        // private ConversationContextChannel _channel;
+
+        /// <summary>
+        /// 'Main conversation' for user endpoint recording session
+        /// </summary>
         private Conversation _conversation;
+        private ConversationTranscriptRecorder _conversationTranscriptRecorder;
 
         private List<MediaTranscriptRecorder> _transcriptRecorders;
+        private Dictionary<ConversationTranscriptRecorder, List<MediaTranscriptRecorder>> _conversationToCallTranscriptMapping;
         private List<Message> _messages;
 
         private AutoResetEvent _waitForConversationTerminated = new AutoResetEvent(false);
@@ -56,18 +62,26 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
         public TranscriptRecorder(ConferenceInvitationReceivedEventArgs e)
         {
             _transcriptRecorders = new List<MediaTranscriptRecorder>();
+            _conversationToCallTranscriptMapping = new Dictionary<ConversationTranscriptRecorder, List<MediaTranscriptRecorder>>();
             _messages = new List<Message>();
             _state = TranscriptRecorderState.Active;
 
-            // TODO
+            // TODO: Log Conversation started and accepting conf invite
+
+            ConferenceInvitation invite = e.Invitation;
+            invite.BeginAccept(ConferenceInvitation_AcceptCompleted, invite);
         }
 
         public TranscriptRecorder(CallReceivedEventArgs<AudioVideoCall> e)
         {
             _transcriptRecorders = new List<MediaTranscriptRecorder>();
+            _conversationToCallTranscriptMapping = new Dictionary<ConversationTranscriptRecorder, List<MediaTranscriptRecorder>>();
             _messages = new List<Message>();
             _state = TranscriptRecorderState.Active;
             _conversation = e.Call.Conversation;
+            _conversationTranscriptRecorder = new ConversationTranscriptRecorder(this, _conversation);
+            _transcriptRecorders.Add(_conversationTranscriptRecorder);
+            _conversationToCallTranscriptMapping.Add(_conversationTranscriptRecorder, new List<MediaTranscriptRecorder>());
 
             // Log AV conversation started
             ConversationParticipant caller = e.RemoteParticipant;
@@ -82,9 +96,13 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
         public TranscriptRecorder(CallReceivedEventArgs<InstantMessagingCall> e)
         {
             _transcriptRecorders = new List<MediaTranscriptRecorder>();
+            _conversationToCallTranscriptMapping = new Dictionary<ConversationTranscriptRecorder, List<MediaTranscriptRecorder>>();
             _messages = new List<Message>();
             _state = TranscriptRecorderState.Active;
             _conversation = e.Call.Conversation;
+            _conversationTranscriptRecorder = new ConversationTranscriptRecorder(this, _conversation);
+            _transcriptRecorders.Add(_conversationTranscriptRecorder);
+            _conversationToCallTranscriptMapping.Add(_conversationTranscriptRecorder, new List<MediaTranscriptRecorder>());
 
             // Log IM conversation started
             ConversationParticipant caller = e.RemoteParticipant;
@@ -112,6 +130,7 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             this.OnMessageReceived(m);
 
             _transcriptRecorders.Add(a);
+            _conversationToCallTranscriptMapping[_conversationTranscriptRecorder].Add(a);
 
             a.AudioVideoCall_Received(e);
         }
@@ -133,18 +152,9 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             this.OnMessageReceived(m);
 
             _transcriptRecorders.Add(i);
+            _conversationToCallTranscriptMapping[_conversationTranscriptRecorder].Add(i);
 
             i.InstantMessagingCall_Received(e);
-        }
-
-        internal void JoinIncomingInvitedConference()
-        {
-
-        }
-
-        internal void JoinIncomingEscalatedConference()
-        {
-
         }
 
         public string GetFullTranscript(bool print = false)
@@ -192,6 +202,10 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
                 //_waitForConversationTerminated.WaitOne();
                 _conversation = null;
             }
+            else
+            {
+                _waitForConversationTerminated.Set();
+            }
         }
 
         #endregion // Public Methods
@@ -205,8 +219,12 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             _messages.Add(m);
         }
 
-        internal void OnMediaTranscriptRecorderError()
+        internal void OnMediaTranscriptRecorderError(Message m)
         {
+            Console.WriteLine("Error message loged: " + m.ToString());
+
+            _messages.Add(m);
+
             // TODO: Logic to handle errors that can happen in indiviual recorders/modality calls
         }
 
@@ -223,106 +241,112 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             }
         }
 
-        internal void OnSubConversationAdded(Conversation subConversation, ConversationTranscriptRecorder addedRecorder)
+        internal void OnSubConversationAdded(Conversation subConversation, MediaTranscriptRecorder addingTranscriptRecorder)
         {
-            // TODO: Start conversation recorder on sub conversation
-            _transcriptRecorders.Add(addedRecorder);
+            // Start conversation recorder on sub conversation
+            ConversationTranscriptRecorder subConvRecorder = null;
+            foreach (ConversationTranscriptRecorder c in _conversationToCallTranscriptMapping.Keys)
+            {
+                if (c.Conversation.Equals(subConversation))
+                {
+                    subConvRecorder = c;
+                    break;
+                }
+            }
+
+            if (subConvRecorder == null)
+            {
+                subConvRecorder = new ConversationTranscriptRecorder(this, subConversation, true);
+                _transcriptRecorders.Add(subConvRecorder);
+                _conversationToCallTranscriptMapping.Add(subConvRecorder, new List<MediaTranscriptRecorder>());
+                _conversationToCallTranscriptMapping[subConvRecorder].Add(addingTranscriptRecorder);
+            }
         }
 
-        internal void OnTranscriptModalityAdded(TranscriptRecorderType addedModality)
+        internal void OnSubConversationRemoved(Conversation subConversation, MediaTranscriptRecorder removingTranscriptRecorder)
         {
+            // Terminate conversation recorder on sub conversation if no calls left under this sub conv
+            ConversationTranscriptRecorder subConvRecorder = null;
+            foreach (ConversationTranscriptRecorder c in _conversationToCallTranscriptMapping.Keys)
+            {
+                if (c.Conversation.Equals(subConversation))
+                {
+                    subConvRecorder = c;
+                    break;
+                }
+            }
 
+            if (subConvRecorder != null)
+            {
+                if (_conversationToCallTranscriptMapping[subConvRecorder].Contains(removingTranscriptRecorder))
+                {
+                    _conversationToCallTranscriptMapping[subConvRecorder].Remove(removingTranscriptRecorder);
+                    if (_conversationToCallTranscriptMapping[subConvRecorder].Count == 0)
+                    {
+                        _conversationToCallTranscriptMapping.Remove(subConvRecorder);
+                        _transcriptRecorders.Remove(subConvRecorder);
+                    }
+                }
+            }
+        }
+
+        internal void OnConversationTerminated(Conversation conversation, ConversationTranscriptRecorder terminatedRecorder)
+        {
+            // TODO: Start conversation recorder on sub conversation
+            _transcriptRecorders.Remove(terminatedRecorder);
+
+            if (!terminatedRecorder.IsSubConversation)
+            {
+                this.Shutdown();
+            }
+        }
+
+        internal void OnEscalatedConferenceJoinRequested(Conversation conversation)
+        {
+            ConferenceTranscriptRecorder confRecorder = new ConferenceTranscriptRecorder(this, conversation);
+            _transcriptRecorders.Add(confRecorder);
+            _conversationToCallTranscriptMapping[_conversationTranscriptRecorder].Add(confRecorder);
+            // TODO: log message for conf escalation events
+            confRecorder.EscalateToConferenceRequested();
+        }
+
+        internal void OnActiveMediaTypeCallToEstablish(Conversation conversation, TranscriptRecorderType addedModality)
+        {
+            // TODO: Will be called from ConferenceTranscriptRecorder after joining an invited conf & added Calls for each supported modality
+            // Note: Requires Established async methods to be added to AV and IM
+            if (addedModality == TranscriptRecorderType.AudioVideo)
+            {
+                AVTranscriptRecorder avRecorder = new AVTranscriptRecorder(this);
+                // TODO: Log call established and added to conv/conf
+                _transcriptRecorders.Add(avRecorder);
+                _conversationToCallTranscriptMapping[_conversationTranscriptRecorder].Add(avRecorder);
+                avRecorder.EstablishAudioVideoCall(conversation);
+            }
+            else if (addedModality == TranscriptRecorderType.InstantMessage)
+            {
+                IMTranscriptRecorder imRecorder = new IMTranscriptRecorder(this);
+                // TODO: Log call established and added to conv/conf
+                _transcriptRecorders.Add(imRecorder);
+                _conversationToCallTranscriptMapping[_conversationTranscriptRecorder].Add(imRecorder);
+                imRecorder.EstablishInstantMessagingCall(conversation);
+            }
         }
 
         #region Callbacks
 
-        /// <summary>
-        /// Occurs when bot joined the conference.
-        /// </summary>
-        /// <param name="argument">The argument.</param>
-        /// <remarks></remarks>
-        public void EndJoinConference(IAsyncResult argument)
+        private void ConferenceInvitation_AcceptCompleted(IAsyncResult result)
         {
-            ConferenceSession conferenceSession = argument.AsyncState as ConferenceSession;
-            Exception exception = null;
-            try
-            {
-                Console.WriteLine("Joined the conference");
-                conferenceSession.EndJoin(argument);
-                Console.WriteLine(string.Format(
-                                              "Conference Url: conf:{0}%3Fconversation-id={1}",
-                                              conferenceSession.ConferenceUri,
-                                              conferenceSession.Conversation.Id));
-            }
-            catch (ConferenceFailureException conferenceFailureException)
-            {
-                // ConferenceFailureException may be thrown on failures due to MCUs being absent or unsupported, or due to malformed parameters.
-                // It is left to the application to perform real error handling here.
-                Console.WriteLine(conferenceFailureException.ToString());
-                exception = conferenceFailureException;
-            }
-            catch (RealTimeException realTimeException)
-            {
-                // It is left to the application to perform real error handling here.
-                Console.WriteLine(realTimeException.ToString());
-                exception = realTimeException;
-            }
-            finally
-            {
-                // Again, for sync. reasons.
-                //this.applicationConferenceJoinCompletedEvent.Set();
+            ConferenceInvitation invite = result.AsyncState as ConferenceInvitation;
+            _conversation = invite.Conversation;
+            
+            _conversationTranscriptRecorder = new ConversationTranscriptRecorder(this, _conversation);
+            _transcriptRecorders.Add(_conversationTranscriptRecorder);
+            _conversationToCallTranscriptMapping.Add(_conversationTranscriptRecorder, new List<MediaTranscriptRecorder>());
 
-                if (exception != null)
-                {
-                    string originator = string.Format("Error when joining the conference.");
-                    Console.WriteLine(originator);
-                }
-
-                // In case Bot was dragged into existing conversation or someone was dragged into existing conversation with Bot; 
-                // it will create ad-hoc conference and here is the place where we need to escalate current call into conference.
-                conferenceSession.Conversation.BeginEscalateToConference(this.EndEscalateConversation, conferenceSession.Conversation);
-            }
-        }
-
-        /// <summary>
-        /// Ends the escalation to conference.
-        /// </summary>
-        /// <param name="argument">The argument.</param>
-        /// <remarks></remarks>
-        private void EndEscalateConversation(IAsyncResult argument)
-        {
-            Conversation conversation = argument.AsyncState as Conversation;
-            Exception exception = null;
-            try
-            {
-                conversation.EndEscalateToConference(argument);
-                Console.WriteLine("Conversation was escalated into conference");
-
-                //this.JoinIncomingEscalatedConference(conversation.ConferenceSession);
-            }
-            catch (OperationFailureException operationFailureException)
-            {
-                // OperationFailureException: Indicates failure to connect the call to the remote party.
-                // It is left to the application to perform real error handling here.
-                Console.WriteLine(operationFailureException.ToString());
-                exception = operationFailureException;
-            }
-            catch (RealTimeException realTimeException)
-            {
-                // RealTimeException may be thrown on media or link-layer failures.
-                // It is left to the application to perform real error handling here.
-                Console.WriteLine(realTimeException.ToString());
-                exception = realTimeException;
-            }
-            finally
-            {
-                //Again, just to sync the completion of the code.
-                if (exception != null)
-                {
-                    string originator = string.Format("Error when escalating to conference.");
-                    Console.WriteLine(originator);
-                }
-            }
+            ConferenceTranscriptRecorder confRecorder = new ConferenceTranscriptRecorder(this, _conversation);
+            _transcriptRecorders.Add(confRecorder);
+            _conversationToCallTranscriptMapping[_conversationTranscriptRecorder].Add(confRecorder);
+            confRecorder.ConferenceInviteAccepted(result);
         }
 
         private void EndTerminateConversation(IAsyncResult ar)

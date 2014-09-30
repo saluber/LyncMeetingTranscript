@@ -44,9 +44,14 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             get { return _speechTranscript; }
         }
 
-        public Boolean IsActive
+        public bool IsActive
         {
             get { return _isActive; }
+        }
+
+        public bool IsRecognizing
+        {
+            get { return _isRecognizing; }
         }
 
         public SpeechRecognizer(TranscriptRecorder transcriptRecorder)

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Rtc.Collaboration;
 using Microsoft.Rtc.Collaboration.AudioVideo;
@@ -14,7 +15,13 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
         private static TranscriptRecorderType _type = TranscriptRecorderType.Conference;
         private TranscriptRecorderState _state = TranscriptRecorderState.Initialized;
 
+        private AutoResetEvent _waitForConferenceSessionTerminated = new AutoResetEvent(false);
+        private AutoResetEvent _waitForInvitedConferenceJoined = new AutoResetEvent(false);
+        private AutoResetEvent _waitForConferenceEscalationCompleted = new AutoResetEvent(false);
+        private AutoResetEvent _waitForInvitedConferenceActiveMediaTypeCallEstablished = new AutoResetEvent(false);
+
         private TranscriptRecorder _transcriptRecorder;
+        private Conversation _conversation;
         private ConferenceSession _conference;
 
         // TODO: Event handler delegates, create transcriptrecorders for added modalities
@@ -35,18 +42,45 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             get { return _transcriptRecorder; }
         }
 
-        public ConferenceSession Conference
+        public ConferenceSession ConferenceSession
         {
             get { return _conference; }
         }
 
-        public ConferenceTranscriptRecorder(TranscriptRecorder transcriptRecorder, ConferenceSession conference)
+        public ConferenceTranscriptRecorder(TranscriptRecorder transcriptRecorder, Conversation conversation)
         {
             _transcriptRecorder = transcriptRecorder;
-            _conference = conference;
+            _conversation = conversation;
+            _conference = _conversation.ConferenceSession;
 
             RegisterConferenceEvents();
-            _state = TranscriptRecorderState.Active;
+        }
+
+        public void ConferenceInviteAccepted(IAsyncResult result)
+        {
+            try
+            {
+                ConferenceInvitation invite = result.AsyncState as ConferenceInvitation;
+                invite.EndAccept(result);
+
+                ConferenceJoinOptions cjo = new ConferenceJoinOptions();
+                //cjo.JoinAsTrustedApplication = false;
+                _conversation.ConferenceSession.BeginJoin(cjo, EndJoinInvitedConference, invite);
+            }
+            catch (RealTimeException ex)
+            {
+                Console.WriteLine("invite.EndAccept failed. Exception: {0}", ex.ToString());
+            }
+            catch (InvalidOperationException ex)
+            {
+                Console.WriteLine("m_conversation.ConferenceSession.BeginJoin failed. Exception: {0}", ex.ToString());
+            }
+        }
+
+        public void EscalateToConferenceRequested()
+        {
+            // The conference session of the escalating conversation must be joined.
+            _conversation.ConferenceSession.BeginJoin(default(ConferenceJoinOptions), EndJoinEscalatedConference, _conversation.ConferenceSession);
         }
 
         public override void Shutdown()
@@ -87,6 +121,11 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
         DateTime.Now, confSession.Conversation.Id, confSession.ConferenceUri, MessageModality.ConferenceInfo, MessageDirection.Outgoing);
 
             _transcriptRecorder.OnMessageReceived(m);
+
+            if (e.State == ConferenceSessionState.Disconnecting || e.State == ConferenceSessionState.Disconnected)
+            {
+                this.Shutdown();
+            }
         }
 
         //Just to record the state transitions in the console.
@@ -198,7 +237,188 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             Console.WriteLine();
         }
 
+        private void InstantMessagingMcuSession_ParticipantEndpointPropertiesChanged(object sender, ParticipantEndpointPropertiesChangedEventArgs<InstantMessagingMcuParticipantEndpointProperties> e)
+        {
+            throw new NotImplementedException();
+        }
+
+        private void InstantMessagingMcuSession_ParticipantEndpointAttendanceChanged(object sender, ParticipantEndpointAttendanceChangedEventArgs<InstantMessagingMcuParticipantEndpointProperties> e)
+        {
+            throw new NotImplementedException();
+        }
+
+        private void InstantMessagingMcuSession_StateChanged(object sender, StateChangedEventArgs<McuSessionState> e)
+        {
+            throw new NotImplementedException();
+        }
+
+        private void AudioVideoMcuSession_ParticipantEndpointPropertiesChanged(object sender, ParticipantEndpointPropertiesChangedEventArgs<AudioVideoMcuParticipantEndpointProperties> e)
+        {
+            throw new NotImplementedException();
+        }
+
+        private void AudioVideoMcuSession_ParticipantEndpointAttendanceChanged(object sender, ParticipantEndpointAttendanceChangedEventArgs<AudioVideoMcuParticipantEndpointProperties> e)
+        {
+            throw new NotImplementedException();
+        }
+
+        private void AudioVideoMcuSession_StateChanged(object sender, StateChangedEventArgs<McuSessionState> e)
+        {
+            throw new NotImplementedException();
+        }
+
         #endregion // ConferenceSession Event Handlers
+
+        #region Callbacks
+        /// <summary>
+        /// Occurs when bot joined the conference.
+        /// </summary>
+        /// <param name="result">The argument.</param>
+        /// <remarks></remarks>
+        public void EndJoinInvitedConference(IAsyncResult result)
+        {
+            ConferenceInvitation invite = result.AsyncState as ConferenceInvitation;
+            Exception exception = null;
+            List<String> activeMediaTypes = new List<string>();
+            try
+            {
+                Console.WriteLine("Joined the invited conference");
+                activeMediaTypes = invite.AvailableMediaTypes.ToList();
+
+                _conversation.ConferenceSession.EndJoin(result);
+
+                Console.WriteLine(string.Format(
+                                              "Conference Url: conf:{0}%3Fconversation-id={1}",
+                                              _conversation.ConferenceSession.ConferenceUri,
+                                              _conversation.ConferenceSession.Conversation.Id));
+            }
+            catch (ConferenceFailureException conferenceFailureException)
+            {
+                // ConferenceFailureException may be thrown on failures due to MCUs being absent or unsupported, or due to malformed parameters.
+                // It is left to the application to perform real error handling here.
+                Console.WriteLine(conferenceFailureException.ToString());
+                exception = conferenceFailureException;
+            }
+            catch (RealTimeException realTimeException)
+            {
+                // It is left to the application to perform real error handling here.
+                Console.WriteLine(realTimeException.ToString());
+                exception = realTimeException;
+            }
+            finally
+            {
+                // Again, for sync. reasons.
+                _waitForInvitedConferenceJoined.Set();
+                _state = TranscriptRecorderState.Active;
+
+                // Establish Calls for Conference's supported modalities
+                if (activeMediaTypes.Contains(MediaType.Audio))
+                {
+                    _transcriptRecorder.OnActiveMediaTypeCallToEstablish(_conversation, TranscriptRecorderType.AudioVideo);
+                }
+                if (activeMediaTypes.Contains(MediaType.Message))
+                {
+                    _transcriptRecorder.OnActiveMediaTypeCallToEstablish(_conversation, TranscriptRecorderType.InstantMessage);
+                }
+
+                _waitForInvitedConferenceActiveMediaTypeCallEstablished.Set();
+
+                if (exception != null)
+                {
+                    string originator = string.Format("Error when joining the conference.");
+                    Console.WriteLine(originator);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Occurs when bot joined the conference.
+        /// </summary>
+        /// <param name="argument">The argument.</param>
+        /// <remarks></remarks>
+        public void EndJoinEscalatedConference(IAsyncResult argument)
+        {
+            ConferenceSession conferenceSession = argument.AsyncState as ConferenceSession;
+            Exception exception = null;
+            try
+            {
+                Console.WriteLine("Joined the conference");
+                conferenceSession.EndJoin(argument);
+                Console.WriteLine(string.Format(
+                                              "Conference Url: conf:{0}%3Fconversation-id={1}",
+                                              conferenceSession.ConferenceUri,
+                                              conferenceSession.Conversation.Id));
+            }
+            catch (ConferenceFailureException conferenceFailureException)
+            {
+                // ConferenceFailureException may be thrown on failures due to MCUs being absent or unsupported, or due to malformed parameters.
+                // It is left to the application to perform real error handling here.
+                Console.WriteLine(conferenceFailureException.ToString());
+                exception = conferenceFailureException;
+            }
+            catch (RealTimeException realTimeException)
+            {
+                // It is left to the application to perform real error handling here.
+                Console.WriteLine(realTimeException.ToString());
+                exception = realTimeException;
+            }
+            finally
+            {
+                if (exception != null)
+                {
+                    string originator = string.Format("Error when joining the conference.");
+                    Console.WriteLine(originator);
+                }
+
+                // In case Bot was dragged into existing conversation or someone was dragged into existing conversation with Bot; 
+                // it will create ad-hoc conference and here is the place where we need to escalate current call into conference.
+                conferenceSession.Conversation.BeginEscalateToConference(EndEscalateConversation, conferenceSession.Conversation);
+            }
+        }
+
+        /// <summary>
+        /// Ends the escalation to conference.
+        /// </summary>
+        /// <param name="argument">The argument.</param>
+        /// <remarks></remarks>
+        private void EndEscalateConversation(IAsyncResult argument)
+        {
+            Conversation conversation = argument.AsyncState as Conversation;
+            Exception exception = null;
+            try
+            {
+                conversation.EndEscalateToConference(argument);
+                Console.WriteLine("Conversation was escalated into conference");
+            }
+            catch (OperationFailureException operationFailureException)
+            {
+                // OperationFailureException: Indicates failure to connect the call to the remote party.
+                // It is left to the application to perform real error handling here.
+                Console.WriteLine(operationFailureException.ToString());
+                exception = operationFailureException;
+            }
+            catch (RealTimeException realTimeException)
+            {
+                // RealTimeException may be thrown on media or link-layer failures.
+                // It is left to the application to perform real error handling here.
+                Console.WriteLine(realTimeException.ToString());
+                exception = realTimeException;
+            }
+            finally
+            {
+                _waitForConferenceEscalationCompleted.Set();
+                _state = TranscriptRecorderState.Active;
+
+                //Again, just to sync the completion of the code.
+                if (exception != null)
+                {
+                    string originator = string.Format("Error when escalating to conference.");
+                    Console.WriteLine(originator);
+                }
+            }
+        }
+
+        #endregion // Callbacks
 
         #region Private Methods
 
@@ -209,6 +429,18 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             _conference.PropertiesChanged += new EventHandler<PropertiesChangedEventArgs<ConferenceSessionProperties>>(this.ConferenceSession_PropertiesChanged);
             _conference.ParticipantEndpointAttendanceChanged += new EventHandler<ParticipantEndpointAttendanceChangedEventArgs<ConferenceParticipantEndpointProperties>>(this.ConferenceSession_ParticipantEndpointAttendanceChanged);
             _conference.ParticipantEndpointPropertiesChanged += new EventHandler<ParticipantEndpointPropertiesChangedEventArgs<ConferenceParticipantEndpointProperties>>(this.ConferenceSession_ParticipantEndpointPropertiesChanged);
+
+            // Register for AudioVieoMcuSession state changes.
+            _conference.AudioVideoMcuSession.StateChanged += new EventHandler<StateChangedEventArgs<McuSessionState>>(AudioVideoMcuSession_StateChanged);
+            // Monitor AudioVideo MCU roster.
+            _conference.AudioVideoMcuSession.ParticipantEndpointAttendanceChanged += new EventHandler<ParticipantEndpointAttendanceChangedEventArgs<AudioVideoMcuParticipantEndpointProperties>>(AudioVideoMcuSession_ParticipantEndpointAttendanceChanged);
+            _conference.AudioVideoMcuSession.ParticipantEndpointPropertiesChanged += new EventHandler<ParticipantEndpointPropertiesChangedEventArgs<AudioVideoMcuParticipantEndpointProperties>>(AudioVideoMcuSession_ParticipantEndpointPropertiesChanged);
+
+            // Register for InstantMessagingMcuSession state changes.
+            _conference.InstantMessagingMcuSession.StateChanged += new EventHandler<StateChangedEventArgs<McuSessionState>>(InstantMessagingMcuSession_StateChanged);
+            // Monitor Instant Messaging MCU roster.
+            _conference.InstantMessagingMcuSession.ParticipantEndpointAttendanceChanged += new EventHandler<ParticipantEndpointAttendanceChangedEventArgs<InstantMessagingMcuParticipantEndpointProperties>>(InstantMessagingMcuSession_ParticipantEndpointAttendanceChanged);
+            _conference.InstantMessagingMcuSession.ParticipantEndpointPropertiesChanged += new EventHandler<ParticipantEndpointPropertiesChangedEventArgs<InstantMessagingMcuParticipantEndpointProperties>>(InstantMessagingMcuSession_ParticipantEndpointPropertiesChanged);
         }
 
         private void UnregisterConferenceEvents()
@@ -218,6 +450,18 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             _conference.PropertiesChanged -= this.ConferenceSession_PropertiesChanged;
             _conference.ParticipantEndpointAttendanceChanged -= this.ConferenceSession_ParticipantEndpointAttendanceChanged;
             _conference.ParticipantEndpointPropertiesChanged -= this.ConferenceSession_ParticipantEndpointPropertiesChanged;
+            
+            // Unregister for AudioVieoMcuSession state changes.
+            _conference.AudioVideoMcuSession.StateChanged -= (AudioVideoMcuSession_StateChanged);
+            // Monitor AudioVideo MCU roster.
+            _conference.AudioVideoMcuSession.ParticipantEndpointAttendanceChanged -= (AudioVideoMcuSession_ParticipantEndpointAttendanceChanged);
+            _conference.AudioVideoMcuSession.ParticipantEndpointPropertiesChanged -= (AudioVideoMcuSession_ParticipantEndpointPropertiesChanged);
+
+            // Unregister for InstantMessagingMcuSession state changes.
+            _conference.InstantMessagingMcuSession.StateChanged -= (InstantMessagingMcuSession_StateChanged);
+            // Monitor Instant Messaging MCU roster.
+            _conference.InstantMessagingMcuSession.ParticipantEndpointAttendanceChanged -= (InstantMessagingMcuSession_ParticipantEndpointAttendanceChanged);
+            _conference.InstantMessagingMcuSession.ParticipantEndpointPropertiesChanged -= (InstantMessagingMcuSession_ParticipantEndpointPropertiesChanged);
         }
 
         #endregion // Private Methods

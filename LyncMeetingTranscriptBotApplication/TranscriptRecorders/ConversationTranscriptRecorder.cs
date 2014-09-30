@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Rtc.Collaboration;
 using Microsoft.Rtc.Collaboration.AudioVideo;
@@ -13,19 +14,15 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
     {
         private static TranscriptRecorderType _type = TranscriptRecorderType.Conversation;
         private TranscriptRecorderState _state = TranscriptRecorderState.Initialized;
-
+        
         private TranscriptRecorder _transcriptRecorder;
         private Conversation _conversation;
-
-        private MediaTranscriptRecorder _parentMediaTranscriptRecorder;
         private bool _isSubConversation = false;
 
-        #region Properties
-        public TranscriptRecorder TranscriptRecorder
-        {
-            get { return _transcriptRecorder; }
-        }
+        private AutoResetEvent _waitForConversationTerminated = new AutoResetEvent(false);
+        private AutoResetEvent _waitForConversationJoined = new AutoResetEvent(false);
 
+        #region Properties
         public override TranscriptRecorderType RecorderType
         {
             get { return _type; }
@@ -36,9 +33,9 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             get { return _state; }
         }
 
-        public MediaTranscriptRecorder ParentMediaTranscriptRecorder
+        public TranscriptRecorder TranscriptRecorder
         {
-            get { return _parentMediaTranscriptRecorder; }
+            get { return _transcriptRecorder; }
         }
 
         public bool IsSubConversation
@@ -51,21 +48,52 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             get { return _conversation; }
         }
 
+        internal AutoResetEvent ConversationTerminatedEventWaiter
+        {
+            get { return _waitForConversationTerminated; }
+        }
+
+        internal AutoResetEvent ConversationJoinedEventWaiter
+        {
+            get { return _waitForConversationJoined; }
+        }
+
         #endregion // Properties
 
-        public ConversationTranscriptRecorder(TranscriptRecorder transcriptRecorder, Conversation conversation, MediaTranscriptRecorder parentRecorder = null)
+        public ConversationTranscriptRecorder(TranscriptRecorder transcriptRecorder, Conversation conversation, bool isSubConversation = false)
         {
-            _transcriptRecorder = transcriptRecorder;
-            _conversation = conversation;
-
-            if (parentRecorder != null)
+            if (transcriptRecorder == null)
             {
-                _parentMediaTranscriptRecorder = parentRecorder;
-                _isSubConversation = true;
+                throw new ArgumentNullException("transcriptRecorder");
+            }
+            if (conversation == null)
+            {
+                throw new ArgumentNullException("conversation");
             }
 
+            _transcriptRecorder = transcriptRecorder;
+            _conversation = conversation;
+            _isSubConversation = isSubConversation;
+
             RegisterConversationEvents();
-            _state = TranscriptRecorderState.Active;
+        }
+
+        public void TerminateConversation()
+        {
+            if (_conversation != null)
+            {
+                _conversation.BeginTerminate(ConversationTerminated, _conversation);
+                UnregisterConversationEvents();
+                _transcriptRecorder.OnConversationTerminated(_conversation, this);
+
+                _conversation = null;
+            }
+            else
+            {
+                _waitForConversationTerminated.Set();
+            }
+
+            _waitForConversationJoined.Reset();
         }
 
         public override void Shutdown()
@@ -77,15 +105,7 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             _state = TranscriptRecorderState.Terminated;
 
             // TODO: Shutdown message
-            if (_conversation != null)
-            {
-                UnregisterConversationEvents();
-            }
-
-            if (_parentMediaTranscriptRecorder != null)
-            {
-                // TODO: Remove subconversation from parent
-            }
+            TerminateConversation();
 
             _transcriptRecorder.OnMediaTranscriptRecorderTerminated(this);
             _transcriptRecorder = null;
@@ -99,8 +119,8 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             _conversation.StateChanged += new EventHandler<StateChangedEventArgs<ConversationState>>(Conversation_StateChanged);
             _conversation.PropertiesChanged += new EventHandler<PropertiesChangedEventArgs<ConversationProperties>>(Conversation_PropertiesChanged);
             _conversation.RemoteParticipantAttendanceChanged += new EventHandler<ParticipantAttendanceChangedEventArgs>(Conversation_ParticipantEndpointAttendanceChanged);
-            _conversation.ParticipantPropertiesChanged += new EventHandler<ParticipantPropertiesChangedEventArgs>(Conversation_ParticipantEndpointPropertiesChanged);
-            _conversation.EscalateToConferenceRequested += new EventHandler<EscalateToConferenceRequestedEventArgs>(conversation_EscalateToConferenceRequested);
+            _conversation.ParticipantPropertiesChanged += new EventHandler<ParticipantPropertiesChangedEventArgs>(Conversation_ParticipantPropertiesChanged);
+            _conversation.EscalateToConferenceRequested += new EventHandler<EscalateToConferenceRequestedEventArgs>(Conversation_EscalateToConferenceRequested);
         }
 
         private void UnregisterConversationEvents()
@@ -109,8 +129,26 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             _conversation.StateChanged -= Conversation_StateChanged;
             _conversation.PropertiesChanged -= Conversation_PropertiesChanged;
             _conversation.RemoteParticipantAttendanceChanged -= Conversation_ParticipantEndpointAttendanceChanged;
-            _conversation.ParticipantPropertiesChanged -= Conversation_ParticipantEndpointPropertiesChanged;
-            _conversation.EscalateToConferenceRequested -= conversation_EscalateToConferenceRequested;
+            _conversation.ParticipantPropertiesChanged -= Conversation_ParticipantPropertiesChanged;
+            _conversation.EscalateToConferenceRequested -= Conversation_EscalateToConferenceRequested;
+        }
+        #endregion // Private Methods
+
+        #region Callbacks
+
+        private void ConversationTerminated(IAsyncResult ar)
+        {
+            Conversation conv = ar.AsyncState as Conversation;
+
+            try
+            {
+                // End terminating the conversation.
+                conv.EndTerminate(ar);
+            }
+            finally
+            {
+                _waitForConversationTerminated.Set();
+            }
         }
 
         #endregion // Private Methods
@@ -122,8 +160,13 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             Conversation conv = sender as Conversation;
             Console.WriteLine("Conversation {0} state changed from " + e.PreviousState + " to " + e.State, conv.LocalParticipant.UserAtHost);
 
-            if (e.State == ConversationState.Terminating || e.State == ConversationState.Terminated)
+            if (e.State == ConversationState.Established || e.State == ConversationState.Conferenced)
             {
+                _waitForConversationJoined.Set();
+            }
+            else if (e.State == ConversationState.Terminating || e.State == ConversationState.Terminated)
+            {
+                _waitForConversationTerminated.Set();
                 this.Shutdown();
             }
         }
@@ -140,7 +183,6 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
                 Console.WriteLine("{0} is notified of participant joining the conversation: {1}",
                     conv.LocalParticipant.UserAtHost,
                     p.UserAtHost);
-
             }
 
             foreach (ConversationParticipant p in e.Removed)
@@ -154,15 +196,23 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
         }
 
         // Just to record the state transitions in the console.
-        void Conversation_ParticipantEndpointPropertiesChanged(object sender, ParticipantPropertiesChangedEventArgs e)
+        /// <summary>
+        /// // Monitor main changes to participant properties
+        /// (including local participant) such as active media types and conferencing role changes
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        void Conversation_ParticipantPropertiesChanged(object sender, ParticipantPropertiesChangedEventArgs e)
         {
             Conversation conv = sender as Conversation;
-
+            
             Console.WriteLine(
                 "{0} is notified of Conversation participant property change for user: {1}. Role:{2}",
                 conv.LocalParticipant.UserAtHost,
                 e.Participant.UserAtHost,
                 e.Properties.Role);
+
+            // TODO: use e.ChangedPropertyNames to report which properties have changed
 
             Console.WriteLine();
 
@@ -209,9 +259,9 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             }
         }
 
-    public void conversation_EscalateToConferenceRequested(object sender, EscalateToConferenceRequestedEventArgs e)
+    private void Conversation_EscalateToConferenceRequested(object sender, EscalateToConferenceRequestedEventArgs e)
     {
-
+        _transcriptRecorder.OnEscalatedConferenceJoinRequested(_conversation);
     }
 
         #endregion // Conversation Event Handlers

@@ -16,7 +16,6 @@ namespace LyncMeetingTranscript.BotApplication
     {
         private UcmaHelper _helper;
         private UserEndpoint _userEndpoint;
-        private Conference _conference;
         private Dictionary<Conversation, TranscriptRecorder> _activeTranscriptRecorders;
 
         // Calls
@@ -65,17 +64,26 @@ namespace LyncMeetingTranscript.BotApplication
 
         public void Shutdown()
         {
-            SaveTranscripts();
-            SendTranscripts();
-
-            foreach (TranscriptRecorder t in _activeTranscriptRecorders.Values)
+            try
             {
-                t.Shutdown();
-            }
+                SaveTranscripts();
+                SendTranscripts();
 
-            // Clean up by shutting down the platform.
-            _helper.ShutdownPlatform();
+                foreach (TranscriptRecorder t in _activeTranscriptRecorders.Values)
+                {
+                    t.Shutdown();
+                }
+
+                // Clean up by shutting down the platform.
+                _helper.ShutdownPlatform();
+            }
+            finally
+            {
+
+            }
         }
+
+        #region Helper Methods
 
         private void SaveTranscripts()
         {
@@ -97,8 +105,6 @@ namespace LyncMeetingTranscript.BotApplication
         {
             // TODO
         }
-
-        #region Helper Methods
 
         private void RegisterEndpointEvents()
         {
@@ -127,24 +133,18 @@ namespace LyncMeetingTranscript.BotApplication
         // Delegate that is called when an incoming AudioVideoCall arrives.
         void AudioVideoCall_Received(object sender, CallReceivedEventArgs<AudioVideoCall> e)
         {
-            if (e.IsNewConversation)
-            {
-                Conversation c = e.Call.Conversation;
-                TranscriptRecorder t = new TranscriptRecorder(e);
-                _activeTranscriptRecorders.Add(c, t);
-            }
-            else if (_activeTranscriptRecorders.ContainsKey(e.Call.Conversation))
+            if (_activeTranscriptRecorders.ContainsKey(e.Call.Conversation))
             {
                 _activeTranscriptRecorders[e.Call.Conversation].AddAVIncomingCall(e);
             }
-            else
+            else if (e.IsNewConversation)
             {
                 Conversation c = e.Call.Conversation;
                 TranscriptRecorder t = new TranscriptRecorder(e);
                 _activeTranscriptRecorders.Add(c, t);
             }
 
-            _waitForCallAccepted.Set();
+            // _waitForCallAccepted.Set();
 
             /*
             //_waitForCallToBeReceived.Set();
@@ -165,28 +165,21 @@ namespace LyncMeetingTranscript.BotApplication
              * */
         }
 
-
         // Delegate that is called when an incoming InstantMessagingCall arrives.
         void InstantMessagingCall_Received(object sender, CallReceivedEventArgs<InstantMessagingCall> e)
         {
-            if (e.IsNewConversation)
-            {
-                Conversation c = e.Call.Conversation;
-                TranscriptRecorder t = new TranscriptRecorder(e);
-                _activeTranscriptRecorders.Add(c, t);
-            }
-            else if (_activeTranscriptRecorders.ContainsKey(e.Call.Conversation))
+            if (_activeTranscriptRecorders.ContainsKey(e.Call.Conversation))
             {
                 _activeTranscriptRecorders[e.Call.Conversation].AddIMIncomingCall(e);
             }
-            else
+            else if (e.IsNewConversation)
             {
                 Conversation c = e.Call.Conversation;
                 TranscriptRecorder t = new TranscriptRecorder(e);
                 _activeTranscriptRecorders.Add(c, t);
             }
 
-            _waitForCallAccepted.Set();
+            //_waitForCallAccepted.Set();
 
             /*
             //_waitForCallToBeReceived.Set();
@@ -213,11 +206,18 @@ namespace LyncMeetingTranscript.BotApplication
         void UserEndpoint_ConferenceInvitationReceived(object sender, ConferenceInvitationReceivedEventArgs e)
         {
             ConferenceInvitation invite = e.Invitation;
-            Conversation c = invite.Conversation;
-            TranscriptRecorder t = new TranscriptRecorder(e);
-            _activeTranscriptRecorders.Add(c, t);
+            Conversation conversation = invite.Conversation;
+            if (_activeTranscriptRecorders.ContainsKey(conversation))
+            {
+                // TODO: join conference with existing conversation
+            }
+            else
+            {
+                TranscriptRecorder t = new TranscriptRecorder(e);
+                _activeTranscriptRecorders.Add(conversation, t);
+            }
 
-            _waitForCallAccepted.Set();
+            //_waitForCallAccepted.Set();
         }
 
         #endregion // Event Handlers

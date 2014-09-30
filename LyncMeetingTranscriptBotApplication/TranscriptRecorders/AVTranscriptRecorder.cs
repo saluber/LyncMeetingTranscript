@@ -23,20 +23,15 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
         private EventHandler<ConversationChangedEventArgs> _audioVideoCallConversationChangedEventHandler;
 
         private AutoResetEvent _waitForAudioVideoCallAccepted = new AutoResetEvent(false);
+        private AutoResetEvent _waitForAudioVideoCallEstablished = new AutoResetEvent(false);
         private AutoResetEvent _waitForAudioVideoCallTerminated = new AutoResetEvent(false);
         private AutoResetEvent _waitForAudioVideoFlowStateChangedToActiveCompleted = new AutoResetEvent(false);
 
         private AudioVideoCall _audioVideoCall;
         private AudioVideoFlow _audioVideoFlow;
         private Conversation _subConversation;
-        private ConversationTranscriptRecorder _subConversationTranscriptRecorder;
 
         #region Properties
-        public TranscriptRecorder TranscriptRecorder
-        {
-            get { return _transcriptRecorder; }
-        }
-
         public override TranscriptRecorderType RecorderType
         {
             get { return _type; }
@@ -45,6 +40,11 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
         public override TranscriptRecorderState State
         {
             get { return _state; }
+        }
+
+        public TranscriptRecorder TranscriptRecorder
+        {
+            get { return _transcriptRecorder; }
         }
 
         public SpeechRecognizer SpeechRecognizer
@@ -66,11 +66,6 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
         {
             get { return _subConversation; }
         }
-
-        public ConversationTranscriptRecorder SubConversationTranscriptRecorder
-        {
-            get { return _subConversationTranscriptRecorder; }
-        }
         #endregion // Properties
 
         public AVTranscriptRecorder(TranscriptRecorder transcriptRecorder,
@@ -79,6 +74,11 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             EventHandler<AudioVideoFlowConfigurationRequestedEventArgs> audioVideoFlowConfigurationRequestedEventHandler = null,
             EventHandler<MediaFlowStateChangedEventArgs> audioVideoFlowStateChangedEventHandler = null)
         {
+            if (transcriptRecorder == null)
+            {
+                throw new ArgumentNullException("transcriptRecorder");
+            }
+
             _transcriptRecorder = transcriptRecorder;
             _speechRecognizer = new SpeechRecognizer(transcriptRecorder);
 
@@ -111,11 +111,19 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
                 _audioVideoCall.ConversationChanged -= AudioVideoCall_ConversationChanged;
                 _audioVideoCall = null;
             }
+            else
+            {
+                _waitForAudioVideoCallTerminated.Set();
+            }
+
+            if (_subConversation != null)
+            {
+                _transcriptRecorder.OnSubConversationRemoved(_subConversation, this);
+                _subConversation = null;
+            }
 
             _waitForAudioVideoCallAccepted.Reset();
-            _waitForAudioVideoCallTerminated.Reset();
             _waitForAudioVideoFlowStateChangedToActiveCompleted.Reset();
-            _state = TranscriptRecorderState.Initialized;
         }
 
         public override void Shutdown()
@@ -124,23 +132,14 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             {
                 return;
             }
+            _state = TranscriptRecorderState.Terminated;
 
             this.TerminateCall();
-
-            _state = TranscriptRecorderState.Terminated;
 
             if (_speechRecognizer != null)
             {
                 _speechRecognizer.Shutdown();
                 _speechRecognizer = null;
-            }
-
-            if (_subConversation != null)
-            {
-                _subConversation.BeginTerminate(ConversationTerminated, _subConversation);
-                _subConversationTranscriptRecorder.Shutdown();
-                _subConversation = null;
-                _subConversationTranscriptRecorder = null;
             }
 
             _transcriptRecorder.OnMediaTranscriptRecorderTerminated(this);
@@ -154,13 +153,20 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
         //call received event handler
         public void AudioVideoCall_Received(CallReceivedEventArgs<AudioVideoCall> e)
         {
+            if (_state == TranscriptRecorderState.Terminated)
+            {
+                // TODO: error message
+                return;
+            }
+
             if (_audioVideoCall != null)
             {
                 Console.WriteLine("Warn: AVCall already exists for this Conversation. Shutting down previous call...");
                 TerminateCall();
             }
 
-            _state = TranscriptRecorderState.Active;
+            _state = TranscriptRecorderState.Initialized;
+            _waitForAudioVideoCallTerminated.Reset();
 
             //Type checking was done by the platform; no risk of this being any 
             // type other than the type expected.
@@ -196,6 +202,67 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             Console.WriteLine("Inbound call state is {0}\n", _audioVideoCall.State);
         }
 
+        public void EstablishAudioVideoCall(Conversation conversation)
+        {
+            if (_state == TranscriptRecorderState.Terminated)
+            {
+                // TODO: error message
+                return;
+            }
+
+            if (_audioVideoCall != null)
+            {
+                Console.WriteLine("Warn: AVCall already exists for this Conversation. Shutting down previous call...");
+                TerminateCall();
+            }
+
+            _state = TranscriptRecorderState.Initialized;
+            _waitForAudioVideoCallTerminated.Reset();
+
+            try
+            {
+                AudioVideoCall avCall = new AudioVideoCall(conversation);
+
+                // Register for Call events
+                _audioVideoCall = avCall;
+
+                // Call: StateChanged: Only hooked up for logging, to show the call 
+                // state transitions.
+                _audioVideoCall.StateChanged += new EventHandler<CallStateChangedEventArgs>(AudioVideoCall_StateChanged);
+
+                // Subscribe for the flow configuration requested event; the flow will be used to send the media.
+                // Ultimately, as a part of the callback, the media will be sent/recieved.
+                _audioVideoCall.AudioVideoFlowConfigurationRequested += new EventHandler<AudioVideoFlowConfigurationRequestedEventArgs>(AudioVideoCall_FlowConfigurationRequested);
+
+                _audioVideoCall.ConversationChanged += new EventHandler<ConversationChangedEventArgs>(AudioVideoCall_ConversationChanged);
+
+                // Establish AudioVideoCall
+                avCall.BeginEstablish(AudioVideoCall_EstablishCompleted, avCall);
+            }
+            catch (InvalidOperationException ex)
+            {
+                Console.WriteLine("avCall.BeginEstablish failed. Exception: {0}", ex.ToString());
+            }
+        }
+
+        void AudioVideoCall_EstablishCompleted(IAsyncResult result)
+        {
+            try
+            {
+                AudioVideoCall avCall = result.AsyncState as AudioVideoCall;
+                avCall.EndEstablish(result);
+            }
+            catch (RealTimeException ex)
+            {
+                Console.WriteLine("avCall.EndEstablish failed. Exception: {0}", ex.ToString());
+            }
+            finally
+            {
+                _waitForAudioVideoCallEstablished.Set();
+                _state = TranscriptRecorderState.Active;
+            }
+        }
+
         void AudioVideoCall_StateChanged(object sender, CallStateChangedEventArgs e)
         {
             Call call = sender as Call;
@@ -209,7 +276,8 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             if ((e.State == CallState.Terminating)
                 || (e.State == CallState.Terminated))
             {
-                this.TerminateCall();
+                _waitForAudioVideoCallTerminated.Set();
+                this.Shutdown();
             }
 
             // call top level event handler
@@ -239,17 +307,14 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
         private void AudioVideoCall_ConversationChanged(object sender, ConversationChangedEventArgs e)
         {
             Console.WriteLine("AVCall conversation changed. Reason: " + e.Reason.ToString());
-
             if (_subConversation != null)
             {
                 Console.WriteLine("Warn: Subconversation already set. Clearing previous subconversation.");
-                _subConversationTranscriptRecorder.Shutdown();
+                _transcriptRecorder.OnSubConversationRemoved(_subConversation, this);
             }
 
-            // TODO: Subscribe to events on subconversation. Delete conversation as part of shutdown
-            // throw new NotImplementedException();
             _subConversation = e.NewConversation;
-            _subConversationTranscriptRecorder = new ConversationTranscriptRecorder(_transcriptRecorder, _subConversation, this);
+            _transcriptRecorder.OnSubConversationAdded(_subConversation, this);
 
             // call top level event handler
             if (_audioVideoCallConversationChangedEventHandler != null)
@@ -311,6 +376,8 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             {
                 //Again, just to sync the completion of the code.
                 _waitForAudioVideoCallAccepted.Set();
+
+                _state = TranscriptRecorderState.Active;
             }
         }
 
@@ -332,14 +399,6 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
                 //Again, just to sync the completion of the code.
                 _waitForAudioVideoCallTerminated.Set();
             }
-        }
-
-        private void ConversationTerminated(IAsyncResult ar)
-        {
-            Conversation conv = ar.AsyncState as Conversation;
-
-            // End terminating the conversation.
-            conv.EndTerminate(ar);
         }
 
         #endregion // Callbacks
