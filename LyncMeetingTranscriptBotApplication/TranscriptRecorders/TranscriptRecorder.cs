@@ -66,10 +66,14 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             _messages = new List<Message>();
             _state = TranscriptRecorderState.Active;
 
-            // TODO: Log Conversation started and accepting conf invite
+            // Log Conference Invitation Recv
+            ConversationParticipant caller = e.RemoteParticipant;
+            Message m = new Message("Conference Started Invitation Recieved.", caller.DisplayName, caller.UserAtHost, caller.Uri, DateTime.Now,
+                _conversation.Id, _conversation.ConferenceSession.ConferenceUri,
+                MessageModality.ConferenceInfo, MessageDirection.Outgoing);
+            this.OnMessageReceived(m);
 
-            ConferenceInvitation invite = e.Invitation;
-            invite.BeginAccept(ConferenceInvitation_AcceptCompleted, invite);
+            AddIncomingInvitedConferece(e);
         }
 
         public TranscriptRecorder(CallReceivedEventArgs<AudioVideoCall> e)
@@ -117,6 +121,18 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
         #endregion // Constructors
 
         #region Public Methods
+
+        public void AddIncomingInvitedConferece(ConferenceInvitationReceivedEventArgs e)
+        {
+            // Log Conference Invitation Recv
+            ConversationParticipant caller = e.RemoteParticipant;
+            Message m = new Message("Conference Started Invite Accept Started.", caller.DisplayName, caller.UserAtHost, caller.Uri, DateTime.Now,
+                _conversation.Id, _conversation.ConferenceSession.ConferenceUri,
+                MessageModality.ConferenceInfo, MessageDirection.Outgoing);
+            this.OnMessageReceived(m);
+
+            e.Invitation.BeginAccept(ConferenceInvitation_AcceptCompleted, e.Invitation);
+        }
 
         public void AddAVIncomingCall(CallReceivedEventArgs<AudioVideoCall> e)
         {
@@ -336,17 +352,41 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
 
         private void ConferenceInvitation_AcceptCompleted(IAsyncResult result)
         {
-            ConferenceInvitation invite = result.AsyncState as ConferenceInvitation;
-            _conversation = invite.Conversation;
-            
-            _conversationTranscriptRecorder = new ConversationTranscriptRecorder(this, _conversation);
-            _transcriptRecorders.Add(_conversationTranscriptRecorder);
-            _conversationToCallTranscriptMapping.Add(_conversationTranscriptRecorder, new List<MediaTranscriptRecorder>());
+            try
+            {
+                ConferenceInvitation invite = result.AsyncState as ConferenceInvitation;
+                invite.EndAccept(result);
 
-            ConferenceTranscriptRecorder confRecorder = new ConferenceTranscriptRecorder(this, _conversation);
-            _transcriptRecorders.Add(confRecorder);
-            _conversationToCallTranscriptMapping[_conversationTranscriptRecorder].Add(confRecorder);
-            confRecorder.ConferenceInviteAccepted(result);
+                if (_conversation == null)
+                {
+                    _conversation = invite.Conversation;
+
+                    _conversationTranscriptRecorder = new ConversationTranscriptRecorder(this, _conversation);
+                    _transcriptRecorders.Add(_conversationTranscriptRecorder);
+                    _conversationToCallTranscriptMapping.Add(_conversationTranscriptRecorder, new List<MediaTranscriptRecorder>());
+
+                    ConferenceTranscriptRecorder confRecorder = new ConferenceTranscriptRecorder(this, _conversation);
+                    _transcriptRecorders.Add(confRecorder);
+                    _conversationToCallTranscriptMapping[_conversationTranscriptRecorder].Add(confRecorder);
+
+                    confRecorder.ConferenceInviteAccepted(result);
+                }
+                else
+                {
+                    Console.WriteLine("Warn: Already have a Conference/active conversation");
+                    // Treat this as a sub conversation?
+                    /*
+                    subConvRecorder = new ConversationTranscriptRecorder(this, subConversation, true);
+                    _transcriptRecorders.Add(subConvRecorder);
+                    _conversationToCallTranscriptMapping.Add(subConvRecorder, new List<MediaTranscriptRecorder>());
+                    _conversationToCallTranscriptMapping[subConvRecorder].Add(addingTranscriptRecorder);
+                     */
+                }
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine("Error: Exception occurred during conference invite acceptance: " + e.ToString());
+            }
         }
 
         private void EndTerminateConversation(IAsyncResult ar)

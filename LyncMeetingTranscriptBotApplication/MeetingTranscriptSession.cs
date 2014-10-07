@@ -1,4 +1,7 @@
 ﻿using System;
+using System.Configuration;
+using System.Linq;
+using System.Text;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -7,10 +10,9 @@ using System.Collections.Generic;
 using Microsoft.Rtc.Collaboration;
 using Microsoft.Rtc.Collaboration.AudioVideo;
 using Microsoft.Rtc.Signaling;
-using LyncMeetingTranscriptBotApplication.UcmaCommon;
 using LyncMeetingTranscriptBotApplication.TranscriptRecorders;
 
-namespace LyncMeetingTranscript.BotApplication
+namespace LyncMeetingTranscriptBotApplication
 {
     public class MeetingTranscriptSession
     {
@@ -50,16 +52,60 @@ namespace LyncMeetingTranscript.BotApplication
         private AutoResetEvent _waitForConversationToTerminate = new AutoResetEvent(false);
         private AutoResetEvent _waitForCallToEstablish = new AutoResetEvent(false);
         private AutoResetEvent _waitForConferenceJoin = new AutoResetEvent(false);
-        private AutoResetEvent _waitForCallAccepted = new AutoResetEvent(false);
+        private AutoResetEvent _waitForCallorInviteRecv = new AutoResetEvent(false);
         private AutoResetEvent _waitForB2BCallToEstablish = new AutoResetEvent(false);
         private AutoResetEvent _waitUntilOneUserHangsUp = new AutoResetEvent(false);
         private AutoResetEvent _waitForB2BCallToTerminate = new AutoResetEvent(false);
 
+        private CancellationTokenSource _cancelToken;
+
         public MeetingTranscriptSession()
+        {         
+            _activeTranscriptRecorders = new Dictionary<Conversation, TranscriptRecorder>();
+            _cancelToken = new CancellationTokenSource();
+        }
+
+        public void Run()
         {
             _helper = new UcmaHelper();
-            _userEndpoint = _helper.CreateEstablishedUserEndpoint("Lync Meeting Transcript App User");
-            _activeTranscriptRecorders = new Dictionary<Conversation, TranscriptRecorder>();
+            _userEndpoint = _helper.CreateEstablishedUserEndpoint("MeetingTranscriptBot");
+            RegisterEndpointEvents();
+            _waitForCallorInviteRecv.WaitOne();
+            _waitForConversationToTerminate.WaitOne();
+        }
+
+        public async Task RunAsync()
+        {
+            _helper = new UcmaHelper();   
+            _userEndpoint = _helper.CreateEstablishedUserEndpoint("MeetingTranscriptBot");
+            RegisterEndpointEvents();
+
+            List<Task> tasks = new List<Task>()
+            {
+                Task.Factory.StartNew(() => WaitForCallOrInviteReceieved(), TaskCreationOptions.LongRunning),
+                Task.Factory.StartNew(() => WaitForConversationTerminated(), TaskCreationOptions.LongRunning)
+            };
+
+            await Task.WhenAll(tasks.ToArray());
+
+            // _waitForCallorInviteRecv.WaitOne();
+            // _waitForConversationToTerminate.WaitOne();
+        }
+
+        public async Task WaitForCallOrInviteReceieved()
+        {
+             await Task.Factory.StartNew(() =>
+                {
+                    _waitForCallorInviteRecv.WaitOne();
+                }, _cancelToken.Token);
+        }
+
+        public async Task WaitForConversationTerminated()
+        {
+            await Task.Factory.StartNew(() =>
+            {
+                _waitForConversationToTerminate.WaitOne();
+            }, _cancelToken.Token);
         }
 
         public void Shutdown()
@@ -69,17 +115,22 @@ namespace LyncMeetingTranscript.BotApplication
                 SaveTranscripts();
                 SendTranscripts();
 
+                if (_cancelToken.Token.CanBeCanceled)
+                {
+                    _cancelToken.Cancel();
+                }
+
                 foreach (TranscriptRecorder t in _activeTranscriptRecorders.Values)
                 {
                     t.Shutdown();
                 }
 
-                // Clean up by shutting down the platform.
-                _helper.ShutdownPlatform();
+                this.UnregisterEndpointEvents();
             }
             finally
             {
-
+                // Clean up by shutting down the platform.
+                _helper.ShutdownPlatform();
             }
         }
 
@@ -89,7 +140,7 @@ namespace LyncMeetingTranscript.BotApplication
         {
             // TODO
             string filename = "LyncMeetingTranscript_" + DateTime.Now.ToShortDateString();
-            using (FileStream fs = new FileStream(filename, FileMode.Create))
+            using (FileStream fs = new FileStream(filename, FileMode.OpenOrCreate))
             {
                 using (BinaryWriter w = new BinaryWriter(fs))
                 {
@@ -143,8 +194,20 @@ namespace LyncMeetingTranscript.BotApplication
                 TranscriptRecorder t = new TranscriptRecorder(e);
                 _activeTranscriptRecorders.Add(c, t);
             }
+            else if (e.IsConferenceDialOut)
+            {
+                /*
+                 * McuDialOutOptions mcuDialOutOptions = new McuDialOutOptions();
+mcuDialOutOptions.ParticipantUri = "sip:alice@contoso.com";
+mcuDialOutOptions.ParticipantDisplayName = "Alice";
+mcuDialOutOptions.PreferredLanguage = CultureInfo.GetCultureInfo("en-us");
 
-            // _waitForCallAccepted.Set();
+conversation.ConferenceSession.AudioVideoMcuSession.BeginDialOut("tel:+14255551234", mcuDialOutOptions, dialOutCallback, state);
+
+                 */
+            }
+
+            _waitForCallorInviteRecv.Set();
 
             /*
             //_waitForCallToBeReceived.Set();
@@ -178,8 +241,20 @@ namespace LyncMeetingTranscript.BotApplication
                 TranscriptRecorder t = new TranscriptRecorder(e);
                 _activeTranscriptRecorders.Add(c, t);
             }
+            else if (e.IsConferenceDialOut)
+            {
+                /*
+ * McuDialOutOptions mcuDialOutOptions = new McuDialOutOptions();
+mcuDialOutOptions.ParticipantUri = "sip:alice@contoso.com";
+mcuDialOutOptions.ParticipantDisplayName = "Alice";
+mcuDialOutOptions.PreferredLanguage = CultureInfo.GetCultureInfo("en-us");
 
-            //_waitForCallAccepted.Set();
+conversation.ConferenceSession.AudioVideoMcuSession.BeginDialOut("tel:+14255551234", mcuDialOutOptions, dialOutCallback, state);
+
+ */
+            }
+
+            _waitForCallorInviteRecv.Set();
 
             /*
             //_waitForCallToBeReceived.Set();
@@ -207,18 +282,40 @@ namespace LyncMeetingTranscript.BotApplication
         {
             ConferenceInvitation invite = e.Invitation;
             Conversation conversation = invite.Conversation;
+            // TODO: indexing by conv id doesn't work for "public meeting recording" scenario
             if (_activeTranscriptRecorders.ContainsKey(conversation))
             {
-                // TODO: join conference with existing conversation
+                _activeTranscriptRecorders[conversation].AddIncomingInvitedConferece(e);
             }
+
             else
             {
                 TranscriptRecorder t = new TranscriptRecorder(e);
-                _activeTranscriptRecorders.Add(conversation, t);
+
+                /*
+                if (e.IsConferenceDialOut)
+                {
+                    e.Invitation
+                 *                 /*
+                 * McuDialOutOptions mcuDialOutOptions = new McuDialOutOptions();
+mcuDialOutOptions.ParticipantUri = "sip:alice@contoso.com";
+mcuDialOutOptions.ParticipantDisplayName = "Alice";
+mcuDialOutOptions.PreferredLanguage = CultureInfo.GetCultureInfo("en-us");
+
+conversation.ConferenceSession.AudioVideoMcuSession.BeginDialOut("tel:+14255551234", mcuDialOutOptions, dialOutCallback, state);
+
+                 */
+                //}
+                //else
+                //{*/
+                    _activeTranscriptRecorders.Add(conversation, t);
+                //}
             }
 
-            //_waitForCallAccepted.Set();
+            _waitForCallorInviteRecv.Set();
         }
+
+        // TODO: Need to raise an event on MeetingTranscriptSession when TranscriptRecorder is shutdown (or conversation/conference ends)
 
         #endregion // Event Handlers
     }

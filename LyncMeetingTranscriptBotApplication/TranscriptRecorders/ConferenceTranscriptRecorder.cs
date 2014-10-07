@@ -61,7 +61,7 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             try
             {
                 ConferenceInvitation invite = result.AsyncState as ConferenceInvitation;
-                invite.EndAccept(result);
+                // ConferenceInvite already accepted in TranscriptRecorder.ConferenceInvitation_AcceptCompleted()
 
                 ConferenceJoinOptions cjo = new ConferenceJoinOptions();
                 //cjo.JoinAsTrustedApplication = false;

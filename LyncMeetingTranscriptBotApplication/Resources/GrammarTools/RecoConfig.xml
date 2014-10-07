@@ -1,0 +1,35 @@
+﻿<Configuration>
+
+  <!-- Indicates that the recognizer is installed locally -->
+  <Provider type="local"/>
+
+
+  <!--Only the 'enginerequiredattributes' values are required for the local 
+		MS Speech Server engine Provider; all others properties are optional:  -->
+
+  <Properties
+		enginerequiredattributes="Language=409;Vendor=Microsoft">
+  </Properties>
+
+  <!--Here's an example when using the Properties element to specify additional properties:
+   
+	<Properties
+		completetimeout="0.25s" incompletetimeout="3s"
+		maxnbest="4" requesttimeout="15s" enginerequiredattributes="Language=409;Vendor=Microsoft"
+		engineoptionalattributes="CommandAndControl">
+	</Properties>
+   
+	-->
+
+  <!--If you want to pass in one or more cookies with each utterance request,
+		you would do so as follows: 
+	
+	<CookieJar>
+		<cookie name="cookie_number_1" value="some_value" domain=".foo.com" path="/bar" secure="true"/>
+		<cookie name="cookie_number_2" value="some_value" domain=".foo.com" path="/bar" secure="true"/>
+	</CookieJar>
+
+	-->
+
+
+</Configuration>

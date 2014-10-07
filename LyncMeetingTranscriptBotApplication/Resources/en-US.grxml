@@ -8,7 +8,7 @@ No association with any real company, organization, product, domain name,
 email address, logo, person, places, or events is intended or should be
 inferred.
 -->
-<grammar xml:lang="en-US" version="1.0" mode="voice" root="Expression" xmlns="http://www.w3.org/2001/06/grammar" tag-format="semantics/1.0">
+<grammar xml:lang="en-US" version="1.0" mode="voice" root="AllCategories" xmlns="http://www.w3.org/2001/06/grammar" tag-format="semantics/1.0">
 
 <tag><![CDATA[
   function FutureMonth(day) {
@@ -183,6 +183,48 @@ inferred.
 	}  
 ]]></tag>
 
+<!-- Category: All -->
+<rule id="AllCategories" scope="public">
+  <example> yes no cancel </example>
+  <item repeat ="1-15">
+    <item repeat="0-1">
+      <ruleref special="GARBAGE"/>
+    </item>
+    <item repeat="1-">
+      <one-of>
+        <item>
+          <ruleref uri="#Confirmation" />
+        </item>
+        <item>
+          <ruleref uri="#Cardinal" />
+        </item>
+        <item>
+          <ruleref uri="#Ordinal" />
+        </item>
+          <item>
+          <ruleref uri="#Number" />
+        </item>
+        <item>
+          <ruleref uri="#DigitBlock_2Digits" />
+        </item>
+        <item>
+          <ruleref uri="#Date" />
+        </item>
+          <item>
+          <ruleref uri="#Time" />
+        </item>
+        <item>
+          <ruleref uri="#PhoneNumber_US" />
+        </item>
+        <item>
+          <ruleref uri="#Currency_US" />
+        </item>
+      </one-of>
+      </item>
+    </item>
+  <tag> out = rules.latest() </tag>
+</rule>
+  
 <!--
   Category: Confirmation
   Description: Confirmation rules provide access to simple dialog confirmation sets. These include Yes, No and Cancel

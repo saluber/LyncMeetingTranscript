@@ -18,9 +18,10 @@
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
     <OutputPath>bin\Debug\</OutputPath>
-    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <DefineConstants>TRACE;DEBUG;EMULATE_SPEECH;</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
+    <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <PlatformTarget>AnyCPU</PlatformTarget>
@@ -31,18 +32,22 @@
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
+  <PropertyGroup>
+    <StartupObject>
+    </StartupObject>
+  </PropertyGroup>
   <ItemGroup>
     <None Include="App.config">
       <SubType>Designer</SubType>
     </None>
+    <None Include="Resources\BuildGrammar.cmd" />
     <None Include="Resources\de-DE.grxml" />
     <None Include="Resources\en-GB.grxml" />
-    <None Include="Resources\en-US.grxml">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
+    <None Include="Resources\en-US.grxml" />
     <None Include="Resources\es-MX.grxml" />
     <None Include="Resources\fr-CA.grxml" />
     <None Include="Resources\fr-FR.grxml" />
+    <None Include="Resources\GeneratedSources\en-US.cfgpp" />
     <None Include="Resources\ja-JP.grxml" />
   </ItemGroup>
   <ItemGroup>
@@ -61,7 +66,6 @@
   <ItemGroup>
     <Reference Include="Microsoft.Rtc.Collaboration, Version=5.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>E:\enlistments\lcsmp\mp\test\server\store\Functional\ACP\ACPModuleStressWarSaw\ExternalLib\Microsoft.Rtc.Collaboration.dll</HintPath>
     </Reference>
     <Reference Include="Microsoft.Rtc.Collaboration.AudioVideo.VoiceXml, Version=4.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
@@ -77,24 +81,48 @@
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Configuration" />
+    <Reference Include="System.Runtime.Serialization" />
+    <Reference Include="System.Security" />
+    <Reference Include="System.Web.Extensions" />
     <Reference Include="System.XML" />
   </ItemGroup>
   <ItemGroup>
-    <Content Include="Resources\TopLevelGrammar.xml">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
+    <None Include="Resources\GrammarTools\CheckPhrase.exe" />
+    <None Include="Resources\GrammarTools\CompileGrammar.exe" />
+    <None Include="Resources\GrammarTools\Confusability.exe" />
+    <None Include="Resources\GrammarTools\GrammarValidation.dll" />
+    <None Include="Resources\GrammarTools\GrammarValidator.exe" />
+    <None Include="Resources\GrammarTools\Microsoft.Speech.Tools.AppDev.CheckPhrase.dll" />
+    <None Include="Resources\GrammarTools\Microsoft.Speech.Tools.AppDev.Confusability.dll" />
+    <None Include="Resources\GrammarTools\Microsoft.Speech.Tools.AppDev.GrammarTuning.dll" />
+    <None Include="Resources\GrammarTools\Microsoft.Speech.Tools.AppDev.GrammarValidation.dll" />
+    <None Include="Resources\GrammarTools\Microsoft.Speech.Tools.AppDev.GrammarValidation.Interop.dll" />
+    <None Include="Resources\GrammarTools\Microsoft.Speech.Tools.AppDev.Internal.dll" />
+    <None Include="Resources\GrammarTools\Microsoft.Speech.Tools.AppDev.PhraseGenerator.dll" />
+    <None Include="Resources\GrammarTools\Microsoft.Speech.Tools.AppDev.PrepareGrammar.dll" />
+    <None Include="Resources\GrammarTools\Microsoft.Speech.Tools.AppDev.RecoRequest.dll" />
+    <None Include="Resources\GrammarTools\NGramCompiler.dll" />
+    <None Include="Resources\GrammarTools\PhraseGenerator.exe" />
+    <None Include="Resources\GrammarTools\PrepareGrammar.exe" />
+    <None Include="Resources\GrammarTools\Simulator.exe" />
+    <None Include="Resources\GrammarTools\SimulatorResultsAnalyzer.exe" />
     <None Include="README.txt">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <Content Include="Resources\Greeting.xml">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="Resources\music.wma" />
-    <Content Include="Resources\tone.wav" />
+    <None Include="Resources\Greeting.xml" />
+    <None Include="Resources\music.wma" />
+    <None Include="Resources\tone.wav" />
+  </ItemGroup>
+  <ItemGroup />
+  <ItemGroup>
+    <None Include="Resources\GrammarTools\RecoConfig.xml" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
     <PostBuildEvent>$(SolutionDir)BuildDemo.cmd $(SolutionDir) $(ProjectName) $(ProjectDir) $(TargetDir)</PostBuildEvent>
+  </PropertyGroup>
+  <PropertyGroup>
+    <PreBuildEvent>$(ProjectDir)Resources\BuildGrammar.cmd $(ProjectDir) en-US $(TargetDir)</PreBuildEvent>
   </PropertyGroup>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.

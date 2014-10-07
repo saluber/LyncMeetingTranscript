@@ -11,11 +11,10 @@ using System.Runtime.InteropServices;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading;
-
 using Microsoft.Rtc.Collaboration;
 using Microsoft.Rtc.Signaling;
 
-namespace LyncMeetingTranscriptBotApplication.UcmaCommon
+namespace LyncMeetingTranscriptBotApplication
 {
     class UcmaHelper
     {
@@ -53,7 +52,7 @@ namespace LyncMeetingTranscriptBotApplication.UcmaCommon
 
         private static CollaborationPlatform _collabPlatform;
         private static bool _isPlatformStarted;
-        // private static CollaborationPlatform _serverCollabPlatform;
+        private static CollaborationPlatform _serverCollabPlatform;
         private AutoResetEvent _platformStartupCompleted = new AutoResetEvent(false);
         private AutoResetEvent _endpointInitCompletedEvent = new AutoResetEvent(false);
         private AutoResetEvent _platformShutdownCompletedEvent = new AutoResetEvent(false);
