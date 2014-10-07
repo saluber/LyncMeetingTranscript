@@ -66,6 +66,9 @@
     <Content Include="LyncMeetingTranscriptClientAppTestPage.html" />
     <Content Include="LyncSilverlightApplicationTestPage.aspx" />
     <Content Include="LyncSilverlightApplicationTestPage.html" />
+    <None Include="README.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <Content Include="Service1.svc" />
     <Content Include="Silverlight.js" />
     <Content Include="Web.config" />
@@ -101,7 +104,7 @@
         <WebProjectProperties>
           <UseIIS>True</UseIIS>
           <AutoAssignPort>True</AutoAssignPort>
-          <DevelopmentServerPort>0</DevelopmentServerPort>
+          <DevelopmentServerPort>10116</DevelopmentServerPort>
           <DevelopmentServerVPath>/</DevelopmentServerVPath>
           <IISUrl>http://localhost:17678/</IISUrl>
           <NTLMAuthentication>False</NTLMAuthentication>
@@ -113,6 +116,9 @@
       </FlavorProperties>
     </VisualStudio>
   </ProjectExtensions>
+  <PropertyGroup>
+    <PostBuildEvent>$(SolutionDir)BuildDemo.cmd $(SolutionDir) $(ProjectName) $(ProjectDir) $(TargetDir)</PostBuildEvent>
+  </PropertyGroup>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
   <Target Name="BeforeBuild">

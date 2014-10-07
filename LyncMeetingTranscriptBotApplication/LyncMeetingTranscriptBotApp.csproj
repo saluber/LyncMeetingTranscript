@@ -37,7 +37,9 @@
     </None>
     <None Include="Resources\de-DE.grxml" />
     <None Include="Resources\en-GB.grxml" />
-    <None Include="Resources\en-US.grxml" />
+    <None Include="Resources\en-US.grxml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Include="Resources\es-MX.grxml" />
     <None Include="Resources\fr-CA.grxml" />
     <None Include="Resources\fr-FR.grxml" />
@@ -78,11 +80,22 @@
     <Reference Include="System.XML" />
   </ItemGroup>
   <ItemGroup>
-    <Content Include="Resources\Greeting.xml" />
+    <Content Include="Resources\TopLevelGrammar.xml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <None Include="README.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <Content Include="Resources\Greeting.xml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <Content Include="Resources\music.wma" />
     <Content Include="Resources\tone.wav" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <PropertyGroup>
+    <PostBuildEvent>$(SolutionDir)BuildDemo.cmd $(SolutionDir) $(ProjectName) $(ProjectDir) $(TargetDir)</PostBuildEvent>
+  </PropertyGroup>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
   <Target Name="BeforeBuild">

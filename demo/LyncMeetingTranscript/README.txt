@@ -1,0 +1,2 @@
+LyncMeetingTranscript Service README
+================================================

@@ -1,0 +1,2 @@
+LyncMeetingTranscript Client Application README
+================================================
