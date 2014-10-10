@@ -215,7 +215,7 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
                 Console.WriteLine("Warn: AVCall already exists for this Conversation. Shutting down previous call...");
                 TerminateCall();
             }
-
+            
             _state = TranscriptRecorderState.Initialized;
             _waitForAudioVideoCallTerminated.Reset();
 
@@ -258,8 +258,8 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             }
             finally
             {
-                _waitForAudioVideoCallEstablished.Set();
                 _state = TranscriptRecorderState.Active;
+                _waitForAudioVideoCallEstablished.Set();
             }
         }
 
@@ -341,7 +341,10 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             }
             else if (e.State == MediaFlowState.Terminated)
             {
-                _speechRecognizer.StopSpeechRecognition();
+                if (_speechRecognizer.IsActive)
+                {
+                    _speechRecognizer.StopSpeechRecognition();
+                }
             }
 
             // call top level event handler

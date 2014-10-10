@@ -469,6 +469,7 @@ namespace LyncMeetingTranscriptBotApplication
 
             if (!terminatedRecorder.IsSubConversation)
             {
+                _waitForConversationTerminated.Set();
                 this.Shutdown();
             }
         }
@@ -478,10 +479,9 @@ namespace LyncMeetingTranscriptBotApplication
             ConferenceTranscriptRecorder confRecorder = new ConferenceTranscriptRecorder(this, conversation);
             _transcriptRecorders.Add(confRecorder);
             _conversationToCallTranscriptMapping[_conversationTranscriptRecorder].Add(confRecorder);
+
             // TODO: log message for conf escalation events
             confRecorder.EscalateToConferenceRequested();
-
-            // TODO: Raise event to TranscriptRecorerSessionManager that conversation has been escalated to conference
         }
 
         internal void OnActiveMediaTypeCallToEstablish(Conversation conversation, TranscriptRecorderType addedModality)
@@ -530,11 +530,6 @@ namespace LyncMeetingTranscriptBotApplication
                     _conversationToCallTranscriptMapping[_conversationTranscriptRecorder].Add(conferenceTranscriptRecorder);
 
                     conferenceTranscriptRecorder.ConferenceInviteAccepted(result);
-
-                    // Raise event to TranscriptRecorderSessionManager that Conference was joined
-                    // TODO: 
-                    // call top level event handler
-                    
                 }
                 else
                 {
