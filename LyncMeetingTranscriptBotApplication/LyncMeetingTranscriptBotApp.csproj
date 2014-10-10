@@ -52,15 +52,16 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Constants.cs" />
-    <Compile Include="MeetingTranscriptSession.cs" />
+    <Compile Include="TranscriptRecorderSessionManager.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="TranscriptRecorders\AVTranscriptRecorder.cs" />
     <Compile Include="TranscriptRecorders\ConferenceTranscriptRecorder.cs" />
     <Compile Include="TranscriptRecorders\ConversationTranscriptRecorder.cs" />
     <Compile Include="TranscriptRecorders\IMTranscriptRecorder.cs" />
-    <Compile Include="TranscriptRecorders\Message.cs" />
+    <Compile Include="Message.cs" />
+    <Compile Include="TranscriptRecorders\MediaTranscriptRecorder.cs" />
     <Compile Include="TranscriptRecorders\SpeechRecognizer.cs" />
-    <Compile Include="TranscriptRecorders\TranscriptRecorder.cs" />
+    <Compile Include="TranscriptRecorderSession.cs" />
     <Compile Include="UcmaCommon\UcmaHelper.cs" />
   </ItemGroup>
   <ItemGroup>

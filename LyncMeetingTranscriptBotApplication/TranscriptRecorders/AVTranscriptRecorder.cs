@@ -15,7 +15,7 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
         private static TranscriptRecorderType _type = TranscriptRecorderType.AudioVideo;
         private TranscriptRecorderState _state = TranscriptRecorderState.Initialized;
         
-        private TranscriptRecorder _transcriptRecorder;
+        private TranscriptRecorderSession _transcriptRecorder;
         private SpeechRecognizer _speechRecognizer;
         private EventHandler<CallStateChangedEventArgs> _audioVideoCallStateChangedEventHandler;
         private EventHandler<AudioVideoFlowConfigurationRequestedEventArgs> _audioVideoFlowConfigurationRequestedEventHandler;
@@ -42,7 +42,7 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             get { return _state; }
         }
 
-        public TranscriptRecorder TranscriptRecorder
+        public TranscriptRecorderSession TranscriptRecorder
         {
             get { return _transcriptRecorder; }
         }
@@ -68,7 +68,7 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
         }
         #endregion // Properties
 
-        public AVTranscriptRecorder(TranscriptRecorder transcriptRecorder,
+        public AVTranscriptRecorder(TranscriptRecorderSession transcriptRecorder,
             EventHandler<ConversationChangedEventArgs> audioVideoCallConversationChangedEventHandler = null,
             EventHandler<CallStateChangedEventArgs> audioVideoCallStateChangedEventHandler = null,
             EventHandler<AudioVideoFlowConfigurationRequestedEventArgs> audioVideoFlowConfigurationRequestedEventHandler = null,

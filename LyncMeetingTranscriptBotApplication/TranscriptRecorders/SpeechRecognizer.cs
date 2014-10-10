@@ -25,7 +25,7 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
         private AutoResetEvent _waitForAudioVideoFlowStateChangedToActiveCompleted = new AutoResetEvent(false);
         private AutoResetEvent _waitForLoadGrammarCompleted = new AutoResetEvent(false);
 
-        private TranscriptRecorder _transcriptRecorder;
+        private TranscriptRecorderSession _transcriptRecorder;
         private bool _isActive = false;
         private bool _isRecognizing = false;
         private string _currentSRLocale = DefaultLocale;
@@ -62,7 +62,7 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             get { return _isRecognizing; }
         }
 
-        public SpeechRecognizer(TranscriptRecorder transcriptRecorder)
+        public SpeechRecognizer(TranscriptRecorderSession transcriptRecorder)
         {
             _transcriptRecorder = transcriptRecorder;
             _speechTranscript = new List<Microsoft.Speech.Recognition.RecognitionResult>();

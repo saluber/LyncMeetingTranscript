@@ -15,7 +15,7 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
         private static TranscriptRecorderType _type = TranscriptRecorderType.Conversation;
         private TranscriptRecorderState _state = TranscriptRecorderState.Initialized;
         
-        private TranscriptRecorder _transcriptRecorder;
+        private TranscriptRecorderSession _transcriptRecorder;
         private Conversation _conversation;
         private bool _isSubConversation = false;
 
@@ -33,7 +33,7 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             get { return _state; }
         }
 
-        public TranscriptRecorder TranscriptRecorder
+        public TranscriptRecorderSession TranscriptRecorder
         {
             get { return _transcriptRecorder; }
         }
@@ -60,7 +60,7 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
 
         #endregion // Properties
 
-        public ConversationTranscriptRecorder(TranscriptRecorder transcriptRecorder, Conversation conversation, bool isSubConversation = false)
+        public ConversationTranscriptRecorder(TranscriptRecorderSession transcriptRecorder, Conversation conversation, bool isSubConversation = false)
         {
             if (transcriptRecorder == null)
             {
@@ -105,9 +105,16 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             _state = TranscriptRecorderState.Terminated;
 
             // TODO: Shutdown message
-            TerminateConversation();
 
-            _transcriptRecorder.OnMediaTranscriptRecorderTerminated(this);
+            if (this.IsSubConversation)
+            {
+                _transcriptRecorder.OnSubConversationRemoved(this.Conversation, this);
+            }
+            else
+            {
+                TerminateConversation();
+                _transcriptRecorder.OnMediaTranscriptRecorderTerminated(this);
+            }
             _transcriptRecorder = null;
         }
 

@@ -10,7 +10,7 @@ namespace LyncMeetingTranscriptBotApplication
 {
     class Program
     {
-        public MeetingTranscriptSession _appSession = null;
+        public TranscriptRecorderSessionManager _appSession = null;
 
         static void Main(string[] args)
         {
@@ -20,13 +20,13 @@ namespace LyncMeetingTranscriptBotApplication
 
         void Run()
         {
-            _appSession = new MeetingTranscriptSession();
+            _appSession = new TranscriptRecorderSessionManager();
             _appSession.Run();
         }
 
         void RunAsync()
         {
-            _appSession = new MeetingTranscriptSession();
+            _appSession = new TranscriptRecorderSessionManager();
             Task t = Task.Factory.StartNew(() => _appSession.RunAsync(), TaskCreationOptions.LongRunning);
             /*
             Task t = Task.Factory.StartNew(()=>

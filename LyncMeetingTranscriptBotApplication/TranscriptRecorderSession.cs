@@ -8,23 +8,93 @@ using Microsoft.Rtc.Collaboration;
 using Microsoft.Rtc.Collaboration.AudioVideo;
 using Microsoft.Rtc.Signaling;
 
-namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
+using LyncMeetingTranscriptBotApplication.TranscriptRecorders;
+
+namespace LyncMeetingTranscriptBotApplication
 {
-    public enum TranscriptRecorderType { AudioVideo, InstantMessage, Conversation, Conference }
-
-    public enum TranscriptRecorderState { Initialized, Active, Terminated }
-
-    public abstract class MediaTranscriptRecorder
+    public class TranscriptRecorderSessionShutdownEventArgs : EventArgs
     {
-        public abstract void Shutdown();
+        private ConferenceSession _conference;
+        private Conversation _conversation;
+        private TranscriptRecorderSession _transcriptRecorderSession;
+        private Guid _sessionId;
+        private List<Message> _messages;
 
-        public abstract TranscriptRecorderType RecorderType { get; }
+        public TranscriptRecorderSessionShutdownEventArgs(TranscriptRecorderSession trs)
+        {
+            _conference = trs.Conference;
+            _conversation = trs.Conversation;
+            _transcriptRecorderSession = trs;
+            _sessionId = trs.SessionId;
+            _messages = trs.Messages;
+        }
 
-        public abstract TranscriptRecorderState State { get; }
+        public ConferenceSession Conference
+        {
+            get { return _conference; }
+        }
+
+        public Conversation Conversation
+        {
+            get { return _conversation; }
+        }
+
+        public TranscriptRecorderSession TranscriptRecorderSession
+        {
+            get { return _transcriptRecorderSession; }
+        }
+
+        public Guid SessionId
+        {
+            get { return _sessionId; }
+        }
+
+        public List<Message> TranscriptMessages
+        {
+            get { return _messages; }
+        }
     }
 
-    public class TranscriptRecorder
+    public class TranscriptRecorderSessionChangedEventArgs : EventArgs
     {
+        private ConferenceSession _conference;
+        private Conversation _conversation;
+        private Guid _sessionId;
+
+        public TranscriptRecorderSessionChangedEventArgs(TranscriptRecorderSession trs)
+        {
+            _conference = trs.Conference;
+            _conversation = trs.Conversation;
+            _sessionId = trs.SessionId;
+        }
+
+        public ConferenceSession Conference
+        {
+            get { return _conference; }
+        }
+
+        public Conversation Conversation
+        {
+            get { return _conversation; }
+        }
+
+        public Guid SessionId
+        {
+            get { return _sessionId; }
+        }
+    }
+
+    public class TranscriptRecorderSession
+    {
+        #region Events
+        public event EventHandler<TranscriptRecorderSessionShutdownEventArgs> TranscriptRecorderSessionShutdown;
+
+        public event EventHandler<TranscriptRecorderSessionChangedEventArgs> TranscriptRecorderSessionChanged;
+        #endregion // Events
+
+        #region Fields
+
+        private Guid _sessionId;
         private TranscriptRecorderState _state = TranscriptRecorderState.Initialized;
 
         // TODO: Transmit messages to Lync client app over ConversationContextChannel
@@ -36,11 +106,20 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
         private Conversation _conversation;
         private ConversationTranscriptRecorder _conversationTranscriptRecorder;
 
+        // TODO: wtf is this data structure choice? fix it.
         private List<MediaTranscriptRecorder> _transcriptRecorders;
         private Dictionary<ConversationTranscriptRecorder, List<MediaTranscriptRecorder>> _conversationToCallTranscriptMapping;
         private List<Message> _messages;
 
         private AutoResetEvent _waitForConversationTerminated = new AutoResetEvent(false);
+
+        #endregion // Fields
+
+        #region Properties
+        public Guid SessionId
+        {
+            get { return _sessionId; }
+        }
 
         public TranscriptRecorderState State
         {
@@ -52,15 +131,32 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             get { return _conversation; }
         }
 
+        public ConferenceSession Conference
+        {
+            get
+            {
+                if (_conversation == null)
+                {
+                    return null;
+                }
+                else
+                {
+                    return _conversation.ConferenceSession;
+                }
+            }
+        }
+
         public List<Message> Messages
         {
             get { return _messages; }
         }
+        #endregion // Properties
 
         #region Consturctors
 
-        public TranscriptRecorder(ConferenceInvitationReceivedEventArgs e)
+        public TranscriptRecorderSession(ConferenceInvitationReceivedEventArgs e)
         {
+            _sessionId = new Guid();
             _transcriptRecorders = new List<MediaTranscriptRecorder>();
             _conversationToCallTranscriptMapping = new Dictionary<ConversationTranscriptRecorder, List<MediaTranscriptRecorder>>();
             _messages = new List<Message>();
@@ -76,8 +172,9 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             AddIncomingInvitedConferece(e);
         }
 
-        public TranscriptRecorder(CallReceivedEventArgs<AudioVideoCall> e)
+        public TranscriptRecorderSession(CallReceivedEventArgs<AudioVideoCall> e)
         {
+            _sessionId = new Guid();
             _transcriptRecorders = new List<MediaTranscriptRecorder>();
             _conversationToCallTranscriptMapping = new Dictionary<ConversationTranscriptRecorder, List<MediaTranscriptRecorder>>();
             _messages = new List<Message>();
@@ -97,8 +194,9 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             AddAVIncomingCall(e);
         }
 
-        public TranscriptRecorder(CallReceivedEventArgs<InstantMessagingCall> e)
+        public TranscriptRecorderSession(CallReceivedEventArgs<InstantMessagingCall> e)
         {
+            _sessionId = new Guid();
             _transcriptRecorders = new List<MediaTranscriptRecorder>();
             _conversationToCallTranscriptMapping = new Dictionary<ConversationTranscriptRecorder, List<MediaTranscriptRecorder>>();
             _messages = new List<Message>();
@@ -155,7 +253,7 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
         {
             if (_state != TranscriptRecorderState.Active)
             {
-                Console.WriteLine("Warn: Unexpected TranscriptRecorder state: " + _state.ToString());
+                Console.WriteLine("Warn: Unexpected TranscriptRecorderSession state: " + _state.ToString());
             }
 
             IMTranscriptRecorder i = new IMTranscriptRecorder(this);
@@ -197,6 +295,7 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             }
             _state = TranscriptRecorderState.Terminated;
 
+            TranscriptRecorderSessionShutdownEventArgs shutdownArgs = null;
             lock (_transcriptRecorders)
             {
                 foreach (MediaTranscriptRecorder m in _transcriptRecorders)
@@ -206,25 +305,80 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
                 _transcriptRecorders.Clear();
             }
 
-            if (_conversation != null)
+            try
             {
-                Message m = new Message("Conversation shutting down.", _conversation.LocalParticipant.DisplayName,
-                    _conversation.LocalParticipant.UserAtHost, _conversation.LocalParticipant.Uri, DateTime.Now,
-                    _conversation.Id, _conversation.ConferenceSession.ConferenceUri,
-                    MessageModality.ConversationInfo, MessageDirection.Outgoing);
-                this.OnMessageReceived(m);
+                Message shutdownMessage = new Message("TranscriptRecorderSession is shutting down. SessionId: " + _sessionId.ToString(),
+                    MessageModality.ConversationInfo, (_conversation == null) ? "null" : _conversation.Id);
+                                
+                this.OnMessageReceived(shutdownMessage);
+                shutdownArgs = new TranscriptRecorderSessionShutdownEventArgs(this);
 
-                _conversation.BeginTerminate(EndTerminateConversation, _conversation);
-                //_waitForConversationTerminated.WaitOne();
-                _conversation = null;
+                // TODO: Conversation should already be shutdown because we shutdown ConversationTranscriptRecorder.
+                if (_conversation != null)
+                {
+                    Message m = new Message("Conversation shutting down.", _conversation.LocalParticipant.DisplayName,
+                        _conversation.LocalParticipant.UserAtHost, _conversation.LocalParticipant.Uri, DateTime.Now,
+                        _conversation.Id, (this.Conference == null) ? "null" : this.Conference.ConferenceUri,
+                        MessageModality.ConversationInfo, MessageDirection.Outgoing);
+
+                   this.OnMessageReceived(m);
+
+                    _conversation.BeginTerminate(EndTerminateConversation, _conversation);
+                    //_waitForConversationTerminated.WaitOne();
+                    _conversation = null;
+                }
+                else
+                {
+                    _waitForConversationTerminated.Set();
+                }
             }
-            else
+            catch (Exception e)
             {
-                _waitForConversationTerminated.Set();
+                Console.WriteLine("TranscriptRecorderSession.Shutdown(). Exception occured during conversation shutdown: {0}",
+                    e.ToString());
+            }
+            finally
+            {
+                // Raise Shutdown event to MeetingTranscriptSessionManager
+                this.RaiseTranscriptRecorderSessionShutdown(shutdownArgs);
             }
         }
 
         #endregion // Public Methods
+
+        private void RaiseTranscriptRecorderSessionShutdown(TranscriptRecorderSessionShutdownEventArgs args)
+        {
+            try
+            {
+                if (this.TranscriptRecorderSessionShutdown != null)
+                {
+                    this.TranscriptRecorderSessionShutdown.Invoke(this, args);
+                }
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine("Error: Exception occured in RaiseTranscriptRecorderSessionShutdown(): {0}",
+                    e.ToString());
+            }
+        }
+
+        internal void RaiseTranscriptRecorderSessionChanged(ConferenceSession conference)
+        {
+            try
+            {
+                if (this.TranscriptRecorderSessionChanged != null)
+                {
+                    TranscriptRecorderSessionChangedEventArgs args = new TranscriptRecorderSessionChangedEventArgs(this);
+                    this.TranscriptRecorderSessionChanged.Invoke(this, args);
+                }
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine("Error: Exception occured in TranscriptRecorderSessionChanged(). Conference: {0}. {1}.",
+                    conference.ConferenceUri,
+                    e.ToString());
+            }
+        }
 
         internal void OnMessageReceived(Message m)
         {
@@ -251,7 +405,10 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
                 _transcriptRecorders.Remove(terminatedRecorder);
             }
 
-            if (_transcriptRecorders.Count == 0)
+            // TODO: Handle sub conversation transcript recorder shutdown
+
+            if ((_transcriptRecorders.Count == 0) || (terminatedRecorder is ConversationTranscriptRecorder)
+            || (terminatedRecorder is ConferenceTranscriptRecorder))
             {
                 this.Shutdown();
             }
@@ -308,7 +465,6 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
 
         internal void OnConversationTerminated(Conversation conversation, ConversationTranscriptRecorder terminatedRecorder)
         {
-            // TODO: Start conversation recorder on sub conversation
             _transcriptRecorders.Remove(terminatedRecorder);
 
             if (!terminatedRecorder.IsSubConversation)
@@ -324,6 +480,8 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             _conversationToCallTranscriptMapping[_conversationTranscriptRecorder].Add(confRecorder);
             // TODO: log message for conf escalation events
             confRecorder.EscalateToConferenceRequested();
+
+            // TODO: Raise event to TranscriptRecorerSessionManager that conversation has been escalated to conference
         }
 
         internal void OnActiveMediaTypeCallToEstablish(Conversation conversation, TranscriptRecorderType addedModality)
@@ -365,11 +523,18 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
                     _transcriptRecorders.Add(_conversationTranscriptRecorder);
                     _conversationToCallTranscriptMapping.Add(_conversationTranscriptRecorder, new List<MediaTranscriptRecorder>());
 
-                    ConferenceTranscriptRecorder confRecorder = new ConferenceTranscriptRecorder(this, _conversation);
-                    _transcriptRecorders.Add(confRecorder);
-                    _conversationToCallTranscriptMapping[_conversationTranscriptRecorder].Add(confRecorder);
+                    // TODO: Handle case where we're already joined into a different meeting for this conv?
 
-                    confRecorder.ConferenceInviteAccepted(result);
+                    ConferenceTranscriptRecorder conferenceTranscriptRecorder = new ConferenceTranscriptRecorder(this, _conversation);
+                    _transcriptRecorders.Add(conferenceTranscriptRecorder);
+                    _conversationToCallTranscriptMapping[_conversationTranscriptRecorder].Add(conferenceTranscriptRecorder);
+
+                    conferenceTranscriptRecorder.ConferenceInviteAccepted(result);
+
+                    // Raise event to TranscriptRecorderSessionManager that Conference was joined
+                    // TODO: 
+                    // call top level event handler
+                    
                 }
                 else
                 {

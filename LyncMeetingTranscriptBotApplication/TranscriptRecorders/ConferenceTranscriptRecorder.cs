@@ -17,10 +17,11 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
 
         private AutoResetEvent _waitForConferenceSessionTerminated = new AutoResetEvent(false);
         private AutoResetEvent _waitForInvitedConferenceJoined = new AutoResetEvent(false);
-        private AutoResetEvent _waitForConferenceEscalationCompleted = new AutoResetEvent(false);
         private AutoResetEvent _waitForInvitedConferenceActiveMediaTypeCallEstablished = new AutoResetEvent(false);
+        private AutoResetEvent _waitForEscalatedConferenceJoined = new AutoResetEvent(false);
+        private AutoResetEvent _waitForConferenceEscalationCompleted = new AutoResetEvent(false);
 
-        private TranscriptRecorder _transcriptRecorder;
+        private TranscriptRecorderSession _transcriptRecorder;
         private Conversation _conversation;
         private ConferenceSession _conference;
 
@@ -37,7 +38,7 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             get { return _state; }
         }
 
-        public TranscriptRecorder TranscriptRecorder
+        public TranscriptRecorderSession TranscriptRecorder
         {
             get { return _transcriptRecorder; }
         }
@@ -47,13 +48,20 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             get { return _conference; }
         }
 
-        public ConferenceTranscriptRecorder(TranscriptRecorder transcriptRecorder, Conversation conversation)
+        public ConferenceTranscriptRecorder(TranscriptRecorderSession transcriptRecorder, Conversation conversation)
         {
             _transcriptRecorder = transcriptRecorder;
             _conversation = conversation;
-            _conference = _conversation.ConferenceSession;
 
-            RegisterConferenceEvents();
+            // TODO: TranscriptRecorderSession should check if new conversation is joined to a conference and do full
+            // Begin/EndJoin with an End async method in ConferenceTranscriptRecorder (as is done for Invite or Escalate)
+            if (_conversation.ConferenceSession != null)
+            {
+                _conference = _conversation.ConferenceSession;
+                _state = TranscriptRecorderState.Active;
+                _waitForInvitedConferenceJoined.Set();
+                RegisterConferenceEvents();
+            }
         }
 
         public void ConferenceInviteAccepted(IAsyncResult result)
@@ -235,6 +243,8 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             }
 
             Console.WriteLine();
+
+            // TODO: If modalities added, establish calls on new modalities
         }
 
         private void InstantMessagingMcuSession_ParticipantEndpointPropertiesChanged(object sender, ParticipantEndpointPropertiesChangedEventArgs<InstantMessagingMcuParticipantEndpointProperties> e)
@@ -286,11 +296,29 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
                 activeMediaTypes = invite.AvailableMediaTypes.ToList();
 
                 _conversation.ConferenceSession.EndJoin(result);
+                _conference = _conversation.ConferenceSession;
 
                 Console.WriteLine(string.Format(
                                               "Conference Url: conf:{0}%3Fconversation-id={1}",
                                               _conversation.ConferenceSession.ConferenceUri,
                                               _conversation.ConferenceSession.Conversation.Id));
+
+                RegisterConferenceEvents();
+
+                // Raise event on TranscriptRecorderSession
+                _transcriptRecorder.RaiseTranscriptRecorderSessionChanged(_conference);
+
+                // Establish Calls for Conference's supported modalities
+                if (activeMediaTypes.Contains(MediaType.Audio))
+                {
+                    _transcriptRecorder.OnActiveMediaTypeCallToEstablish(_conversation, TranscriptRecorderType.AudioVideo);
+                }
+                if (activeMediaTypes.Contains(MediaType.Message))
+                {
+                    _transcriptRecorder.OnActiveMediaTypeCallToEstablish(_conversation, TranscriptRecorderType.InstantMessage);
+                }
+
+                _waitForInvitedConferenceActiveMediaTypeCallEstablished.Set();
             }
             catch (ConferenceFailureException conferenceFailureException)
             {
@@ -308,24 +336,12 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             finally
             {
                 // Again, for sync. reasons.
-                _waitForInvitedConferenceJoined.Set();
                 _state = TranscriptRecorderState.Active;
-
-                // Establish Calls for Conference's supported modalities
-                if (activeMediaTypes.Contains(MediaType.Audio))
-                {
-                    _transcriptRecorder.OnActiveMediaTypeCallToEstablish(_conversation, TranscriptRecorderType.AudioVideo);
-                }
-                if (activeMediaTypes.Contains(MediaType.Message))
-                {
-                    _transcriptRecorder.OnActiveMediaTypeCallToEstablish(_conversation, TranscriptRecorderType.InstantMessage);
-                }
-
-                _waitForInvitedConferenceActiveMediaTypeCallEstablished.Set();
+                _waitForInvitedConferenceJoined.Set();
 
                 if (exception != null)
                 {
-                    string originator = string.Format("Error when joining the conference.");
+                    string originator = string.Format("Error when joining the invited conference: {0}", exception.ToString());
                     Console.WriteLine(originator);
                 }
             }
@@ -348,6 +364,18 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
                                               "Conference Url: conf:{0}%3Fconversation-id={1}",
                                               conferenceSession.ConferenceUri,
                                               conferenceSession.Conversation.Id));
+
+                _conference = conferenceSession;
+
+                RegisterConferenceEvents();
+
+                // Raise event on TranscriptRecorderSession
+                _transcriptRecorder.RaiseTranscriptRecorderSessionChanged(_conference);
+
+                // In case Bot was dragged into existing conversation or someone was dragged into existing conversation with Bot; 
+                // it will create ad-hoc conference and here is the place where we need to escalate current call into conference.
+                conferenceSession.Conversation.BeginEscalateToConference(EndEscalateConversation, conferenceSession.Conversation);
+
             }
             catch (ConferenceFailureException conferenceFailureException)
             {
@@ -366,13 +394,11 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             {
                 if (exception != null)
                 {
-                    string originator = string.Format("Error when joining the conference.");
+                    string originator = string.Format("Error when joining the escalated conference.");
                     Console.WriteLine(originator);
                 }
 
-                // In case Bot was dragged into existing conversation or someone was dragged into existing conversation with Bot; 
-                // it will create ad-hoc conference and here is the place where we need to escalate current call into conference.
-                conferenceSession.Conversation.BeginEscalateToConference(EndEscalateConversation, conferenceSession.Conversation);
+                _waitForEscalatedConferenceJoined.Set();
             }
         }
 
@@ -406,8 +432,8 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             }
             finally
             {
-                _waitForConferenceEscalationCompleted.Set();
                 _state = TranscriptRecorderState.Active;
+                _waitForConferenceEscalationCompleted.Set();
 
                 //Again, just to sync the completion of the code.
                 if (exception != null)

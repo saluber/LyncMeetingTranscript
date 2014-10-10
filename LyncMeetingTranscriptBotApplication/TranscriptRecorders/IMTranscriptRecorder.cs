@@ -14,7 +14,7 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
     {
         private static TranscriptRecorderType _type = TranscriptRecorderType.InstantMessage;
         private TranscriptRecorderState _state = TranscriptRecorderState.Initialized;
-        private TranscriptRecorder _transcriptRecorder;
+        private TranscriptRecorderSession _transcriptRecorder;
 
         private EventHandler<CallStateChangedEventArgs> _imCallStateChangedEventHandler;
         private EventHandler<InstantMessagingFlowConfigurationRequestedEventArgs> _imFlowConfigurationRequestedEventHandler;
@@ -42,7 +42,7 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             get { return _state; }
         }
 
-        public TranscriptRecorder TranscriptRecorder
+        public TranscriptRecorderSession TranscriptRecorder
         {
             get { return _transcriptRecorder; }
         }
@@ -64,7 +64,7 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
 
         #endregion // Properties
 
-        public IMTranscriptRecorder(TranscriptRecorder transcriptRecorder,
+        public IMTranscriptRecorder(TranscriptRecorderSession transcriptRecorder,
             EventHandler<CallStateChangedEventArgs> imCallStateChangedEventHandler = null,
             EventHandler<InstantMessagingFlowConfigurationRequestedEventArgs> imFlowConfigurationRequestedEventHandler = null,
             EventHandler<MediaFlowStateChangedEventArgs> imFlowStateChangedEventHandler = null,
