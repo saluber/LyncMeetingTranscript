@@ -12,6 +12,7 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
 {
     class IMTranscriptRecorder : MediaTranscriptRecorder
     {
+        #region Fields
         private static TranscriptRecorderType _type = TranscriptRecorderType.InstantMessage;
         private TranscriptRecorderState _state = TranscriptRecorderState.Initialized;
         private TranscriptRecorderSession _transcriptRecorder;
@@ -20,6 +21,7 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
         private EventHandler<InstantMessagingFlowConfigurationRequestedEventArgs> _imFlowConfigurationRequestedEventHandler;
         private EventHandler<MediaFlowStateChangedEventArgs> _imFlowStateChangedEventHandler;
         private EventHandler<InstantMessageReceivedEventArgs> _imFlowMessageReceivedEventHandler;
+        private EventHandler<ConversationChangedEventArgs> _imCallConversationChangedEventHandler;
 
         private AutoResetEvent _waitForIMCallAccepted = new AutoResetEvent(false);
         private AutoResetEvent _waitForIMCallEstablished = new AutoResetEvent(false);
@@ -29,6 +31,7 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
         private InstantMessagingCall _instantMessagingCall;
         private InstantMessagingFlow _instantMessagingFlow;
         private Conversation _subConversation;
+        #endregion // Fields
 
         #region Properties
 
@@ -68,7 +71,8 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             EventHandler<CallStateChangedEventArgs> imCallStateChangedEventHandler = null,
             EventHandler<InstantMessagingFlowConfigurationRequestedEventArgs> imFlowConfigurationRequestedEventHandler = null,
             EventHandler<MediaFlowStateChangedEventArgs> imFlowStateChangedEventHandler = null,
-            EventHandler<InstantMessageReceivedEventArgs> imFlowMessageReceivedEventHandler = null)
+            EventHandler<InstantMessageReceivedEventArgs> imFlowMessageReceivedEventHandler = null,
+            EventHandler<ConversationChangedEventArgs> imCallConversationChangedEventHandler = null)
         {
             if (transcriptRecorder == null)
             {
@@ -81,6 +85,7 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             _imFlowConfigurationRequestedEventHandler = imFlowConfigurationRequestedEventHandler;
             _imFlowStateChangedEventHandler = imFlowStateChangedEventHandler;
             _imFlowMessageReceivedEventHandler = imFlowMessageReceivedEventHandler;
+            _imCallConversationChangedEventHandler = imCallConversationChangedEventHandler;
         }
 
         public void TerminateCall()
@@ -97,6 +102,7 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
                 _instantMessagingCall.BeginTerminate(InstantMessagingCallTerminated, _instantMessagingCall);
                 _instantMessagingCall.StateChanged -= this.InstantMessagingCall_StateChanged;
                 _instantMessagingCall.InstantMessagingFlowConfigurationRequested -= this.InstantMessagingCall_FlowConfigurationRequested;
+                _instantMessagingCall.ConversationChanged -= this.InstantMessagingCall_ConversationChanged;
                 _instantMessagingCall = null;
             }
             else
@@ -108,6 +114,11 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             {
                 _transcriptRecorder.OnSubConversationRemoved(_subConversation, this);
                 _transcriptRecorder = null;
+            }
+            if (_subConversation != null)
+            {
+                _transcriptRecorder.OnSubConversationRemoved(_subConversation, this);
+                _subConversation = null;
             }
 
             _waitForIMCallAccepted.Reset();
@@ -124,8 +135,6 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
 
             TerminateCall();
 
-            // TODO: Shutdown message
-
             _transcriptRecorder.OnMediaTranscriptRecorderTerminated(this);
             _transcriptRecorder = null;
         }
@@ -136,13 +145,15 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
         {
             if (_state == TranscriptRecorderState.Terminated)
             {
-                // TODO: error message
+                Console.WriteLine("Error: IMTranscriptRecorder is shutdown.");
+                // TODO: Info message
                 return;
             }
 
             if (_instantMessagingCall != null)
             {
                 Console.WriteLine("Warn: IMCall already exists for this Conversation. Shutting down previous call...");
+                // TODO: Info message
                 TerminateCall();
             }
 
@@ -161,13 +172,21 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             _instantMessagingCall.InstantMessagingFlowConfigurationRequested +=
                 new EventHandler<InstantMessagingFlowConfigurationRequestedEventArgs>(InstantMessagingCall_FlowConfigurationRequested);
 
+            _instantMessagingCall.ConversationChanged += new EventHandler<ConversationChangedEventArgs>(InstantMessagingCall_ConversationChanged);
+
             // Remote Participant URI represents the far end (caller) in this 
             // conversation. Toast is the message set by the caller as the 
             // 'greet' message for this call. In Microsoft Lync, the 
             // toast will show up in the lower-right of the screen.
-            Console.WriteLine("IMCall Received! From: " + e.RemoteParticipant.Uri + " Toast is: " +
-                                                e.ToastMessage.Message);
+            // TODO: Change to protect privacy
+            // Console.WriteLine("IMCall Received! From: " + e.RemoteParticipant.Uri + " Toast is: " + e.ToastMessage.Message);
+            Console.WriteLine("IMCall Received! From: " + e.RemoteParticipant.Uri);
             // Console.Writelin("IMCall Received!");
+
+            Message m = new Message("InstantMessagingCall Received. Inbound call state: " + _instantMessagingCall.State.ToString(),
+                e.RemoteParticipant.DisplayName, e.RemoteParticipant.UserAtHost, e.RemoteParticipant.Uri,
+                MessageType.InstantMessage, _transcriptRecorder.Conversation.Id, MessageDirection.Incoming);
+            _transcriptRecorder.OnMessageReceived(m);
 
             // Now, accept the call. EndAcceptCall will be raised on the 
             // same thread.
@@ -178,6 +197,7 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
         {
             if (_state == TranscriptRecorderState.Terminated)
             {
+                Console.WriteLine("Error: IMTranscriptRecorder is shutdown.");
                 // TODO: error message
                 return;
             }
@@ -185,6 +205,7 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             if (_instantMessagingCall != null)
             {
                 Console.WriteLine("Warn: IMCall already exists for this Conversation. Shutting down previous call...");
+                // TODO: Info message
                 TerminateCall();
             }
 
@@ -211,7 +232,8 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             }
             catch (InvalidOperationException ex)
             {
-                Console.WriteLine("imCall.BeginEstablish failed. Exception: {0}", ex.ToString());
+                Console.WriteLine("Error: imCall.BeginEstablish failed. Exception: {0}", ex.ToString());
+                // TODO: Error Message
             }
         }
 
@@ -224,12 +246,19 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             }
             catch (RealTimeException ex)
             {
-                Console.WriteLine("imCall.EndEstablish failed. Exception: {0}", ex.ToString());
+                Console.WriteLine("Error: imCall.EndEstablish failed. Exception: {0}", ex.ToString());
+                // TODO: error message
             }
             finally
             {
-                this._waitForIMCallEstablished.Set();
+                Message m = new Message("InstantMessagingCall Established. Call state: " + _instantMessagingCall.State.ToString() + ". CallId: " + _instantMessagingCall.CallId + ".",
+                    _instantMessagingCall.RemoteEndpoint.Participant.DisplayName, _instantMessagingCall.RemoteEndpoint.Participant.UserAtHost,
+                    _instantMessagingCall.RemoteEndpoint.Participant.Uri,
+                    MessageType.InstantMessage, _transcriptRecorder.Conversation.Id, MessageDirection.Incoming);
+                _transcriptRecorder.OnMessageReceived(m);
+
                 _state = TranscriptRecorderState.Active;
+                this._waitForIMCallEstablished.Set();
             }
         }
 
@@ -243,8 +272,17 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
                 " has changed state. The previous call state was: " + e.PreviousState +
                 " and the current state is: " + e.State);
 
+            Message m = new Message("The InstantMessaging call with Local Participant: " + call.Conversation.LocalParticipant +
+                " and Remote Participant: " + call.RemoteEndpoint.Participant +
+                " has changed state. The previous call state was: " + e.PreviousState +
+                " and the current state is: " + e.State,
+                MessageType.InstantMessage,
+                _transcriptRecorder.Conversation.Id);
+            _transcriptRecorder.OnMessageReceived(m);
+
             if (e.State == CallState.Terminating || e.State == CallState.Terminated)
             {
+                Console.WriteLine("Shutting down IMTranscriptRecorder");
                 _waitForIMCallTerminated.Set();
                 this.Shutdown();
             }
@@ -264,6 +302,11 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             Console.WriteLine("IM Flow Configuration Requested.");
             _instantMessagingFlow = e.Flow;
 
+            Message m = new Message("IM Flow Configuration Requested.",
+                MessageType.InstantMessage,
+                _transcriptRecorder.Conversation.Id);
+            _transcriptRecorder.OnMessageReceived(m);
+
             // Now that the flow is non-null, bind the event handlers for State 
             // Changed and Message Received. When the flow goes active, 
             // (as indicated by the state changed event) the program will send 
@@ -281,9 +324,39 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             }
         }
 
+        private void InstantMessagingCall_ConversationChanged(object sender, ConversationChangedEventArgs e)
+        {
+            Console.WriteLine("IMCall conversation changed. Reason: " + e.Reason.ToString());
+            if (_subConversation != null)
+            {
+                Console.WriteLine("Warn: Subconversation already set. Clearing previous subconversation.");
+                _transcriptRecorder.OnSubConversationRemoved(_subConversation, this);
+            }
+
+            _subConversation = e.NewConversation;
+
+            Message m = new Message("IMCall conversation changed. Reason: " + e.Reason.ToString() + ". New Conversation: " + _subConversation.Id + ".",
+                MessageType.InstantMessage,
+                _transcriptRecorder.Conversation.Id);
+            _transcriptRecorder.OnMessageReceived(m);
+
+            _transcriptRecorder.OnSubConversationAdded(_subConversation, this);
+
+            // call top level event handler
+            if (_imCallConversationChangedEventHandler != null)
+            {
+                _imCallConversationChangedEventHandler(sender, e);
+            }
+        }
+
         private void InstantMessagingFlow_StateChanged(object sender, MediaFlowStateChangedEventArgs e)
         {
             Console.WriteLine("IM flow state changed from " + e.PreviousState + " to " + e.State);
+
+            Message m = new Message("InstantMessagingFlow changed from " + e.PreviousState + " to " + e.State + ".",
+                MessageType.InstantMessage,
+                _transcriptRecorder.Conversation.Id);
+            _transcriptRecorder.OnMessageReceived(m);
 
             // When flow is active, media operations (here, sending an IM) 
             // may begin.
@@ -307,8 +380,7 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
 
             Message m = new Message(e.TextBody, e.Sender.DisplayName, e.Sender.UserAtHost, e.Sender.Uri, DateTime.Now,
                 _instantMessagingCall.Conversation.Id, _instantMessagingCall.Conversation.ConferenceSession.ConferenceUri,
-                MessageModality.InstantMessage, MessageDirection.Outgoing);
-
+                MessageType.InstantMessage, MessageDirection.Incoming);
             this._transcriptRecorder.OnMessageReceived(m);
 
             // call top level event handler

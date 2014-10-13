@@ -22,8 +22,13 @@ namespace LyncMeetingTranscriptBotApplication
         {
             _appSession = new TranscriptRecorderSessionManager();
             _appSession.Run();
+
+            Console.WriteLine("Program: Press any key to exit.");
+            Console.ReadLine();
+            _appSession.Shutdown();
         }
 
+        // TODO: Use async correctly at Program/Main-level
         void RunAsync()
         {
             _appSession = new TranscriptRecorderSessionManager();
@@ -55,6 +60,8 @@ namespace LyncMeetingTranscriptBotApplication
                 t.Dispose();
             }
             */
+            Console.WriteLine("Program: Press any key to exit.");
+            Console.ReadLine();
             _appSession.Shutdown();
         }
     }

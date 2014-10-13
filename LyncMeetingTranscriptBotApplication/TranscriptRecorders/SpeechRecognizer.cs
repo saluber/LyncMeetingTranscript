@@ -129,8 +129,8 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             }
             if (_isActive)
             {
-                Console.WriteLine("Warn: SpeechRecognizer already active on an AudioFlow. Ignoring AttachAndStart() request.");
-                return;
+                Console.WriteLine("Warn: SpeechRecognizer already active on an AudioFlow. Stopping current recognition session.");
+                StopSpeechRecognition();
             }
 
             _waitForAudioVideoFlowStateChangedToActiveCompleted.Reset();
@@ -230,18 +230,35 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
         private void AudioVideoFlow_StateChanged(object sender, MediaFlowStateChangedEventArgs e)
         {
             Console.WriteLine("AV flow state changed from " + e.PreviousState + " to " + e.State);
+            string messageText = "";
 
             //When flow is active, media operations can begin
             if (e.State == MediaFlowState.Active)
             {
+                Console.WriteLine("Starting speech recognition");
+                messageText = "Starting speech recognition";
+
                 // Flow-related media operations normally begin here.
                 _waitForAudioVideoFlowStateChangedToActiveCompleted.Set();
                 StartSpeechRecognition();
             }
             else if (e.State == MediaFlowState.Terminated)
             {
+                Console.WriteLine("Stopping speech recognition");
+                messageText = "Stopping speech recognition";
+
                 // Detach SpeechSynthesisConnector since AVFlow will not work anymore
                 this.StopSpeechRecognition();
+            }
+
+            if (!String.IsNullOrEmpty(messageText))
+            {
+                Conversation conv = _audioVideoFlow.Call.Conversation;
+                ConversationParticipant speaker = _audioVideoFlow.Call.RemoteEndpoint.Participant;
+                Message m = new Message(messageText, speaker.DisplayName, speaker.UserAtHost,
+                    speaker.Uri, DateTime.Now, conv.Id,
+                    conv.ConferenceSession.ConferenceUri, MessageType.Info, MessageDirection.Outgoing);
+                this._transcriptRecorder.OnMessageReceived(m);
             }
         }
 
@@ -252,6 +269,16 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             if (e.Error != null)
             {
                 Console.WriteLine("Error: SpeechRecognizer receieved error from LoadGrammar(): " + e.ToString());
+
+                string errorMessageText = "Error: SpeechRecognizer receieved error from LoadGrammar(): " + e.ToString();
+                Conversation conv = _audioVideoFlow.Call.Conversation;
+                ConversationParticipant speaker = _audioVideoFlow.Call.RemoteEndpoint.Participant;
+                Message m = new Message(errorMessageText, speaker.DisplayName, speaker.UserAtHost,
+                    speaker.Uri, DateTime.Now, conv.Id,
+                    conv.ConferenceSession.ConferenceUri, MessageType.Error, MessageDirection.Outgoing);
+                this._transcriptRecorder.OnMessageReceived(m);
+
+                _transcriptRecorder.OnMediaTranscriptRecorderError(m);
             }
 
             _pendingLoadSpeechGrammarCounter--;
@@ -266,12 +293,19 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
         void SpeechRecognitionEngine_SpeechDetected(object sender, Microsoft.Speech.Recognition.SpeechDetectedEventArgs e)
         {
             Console.WriteLine("SpeechRecognitionEngine has detected speech.");
+
+            Conversation conv = _audioVideoFlow.Call.Conversation;
+            ConversationParticipant speaker = _audioVideoFlow.Call.RemoteEndpoint.Participant;
+            Message m = new Message("SpeechRecognitionEngine has detected speech.", speaker.DisplayName, speaker.UserAtHost,
+                speaker.Uri, DateTime.Now, conv.Id,
+                conv.ConferenceSession.ConferenceUri, MessageType.Info, MessageDirection.Outgoing);
+            this._transcriptRecorder.OnMessageReceived(m);
         }
 
         void SpeechRecognitionEngine_RecognizeCompleted(object sender, Microsoft.Speech.Recognition.RecognizeCompletedEventArgs e)
         {
             string messageText = "";
-            MessageModality messageModality = MessageModality.Audio;
+            MessageType messageModality = MessageType.Audio;
 
             Microsoft.Speech.Recognition.RecognitionResult result = e.Result;
             if (result != null)
@@ -279,20 +313,23 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
                 Console.WriteLine("Speech recognized: " + result.Text);
                 _speechTranscript.Add(result);
                 messageText = result.Text;
-
             }
             else if (e.Error != null)
             {
                     messageText = e.Error.ToString();
-                    messageModality = MessageModality.Error;
+                    messageModality = MessageType.Error;
                     Console.WriteLine("Error occured during speech detection: " + e.Error.ToString());
             }
             else if (e.InputStreamEnded || e.Cancelled)
             {
                 Console.WriteLine("Speech recognization completed due to user disconnect or conference ending.");
+                messageText = "Speech recognization completed due to user disconnect or conference ending.";
+                messageModality = MessageType.Info;
             }
             else
             {
+                messageText = "Failed to recognize speech.";
+                messageModality = MessageType.Error;
                 Console.WriteLine("Failed to recognize speech.");
             }
 
@@ -302,7 +339,6 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
                 ConversationParticipant speaker = _audioVideoFlow.Call.RemoteEndpoint.Participant;
                 Message m = new Message(messageText, speaker.DisplayName, speaker.UserAtHost, speaker.Uri, DateTime.Now, conv.Id,
                     conv.ConferenceSession.ConferenceUri, messageModality, MessageDirection.Outgoing);
-
                 this._transcriptRecorder.OnMessageReceived(m);
             }
         }

@@ -445,7 +445,7 @@ namespace LyncMeetingTranscriptBotApplication
             // TODO: indexing by conv id doesn't work for "public meeting recording" scenario
             if (_activeConversationSessions.ContainsKey(conversation))
             {
-                _activeConversationSessions[conversation].AddIncomingInvitedConferece(e);
+                _activeConversationSessions[conversation].AddIncomingInvitedConference(e);
             }
             else
             {

@@ -104,8 +104,6 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             }
             _state = TranscriptRecorderState.Terminated;
 
-            // TODO: Shutdown message
-
             if (this.IsSubConversation)
             {
                 _transcriptRecorder.OnSubConversationRemoved(this.Conversation, this);
@@ -167,6 +165,10 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             Conversation conv = sender as Conversation;
             Console.WriteLine("Conversation {0} state changed from " + e.PreviousState + " to " + e.State, conv.LocalParticipant.UserAtHost);
 
+            Message m = new Message("Conversation state changed from " + e.PreviousState.ToString() + " to " + e.State.ToString(),
+                MessageType.ConversationInfo, _conversation.Id);
+            _transcriptRecorder.OnMessageReceived(m);
+
             if (e.State == ConversationState.Established || e.State == ConversationState.Conferenced)
             {
                 _waitForConversationJoined.Set();
@@ -190,6 +192,10 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
                 Console.WriteLine("{0} is notified of participant joining the conversation: {1}",
                     conv.LocalParticipant.UserAtHost,
                     p.UserAtHost);
+
+                Message m = new Message("Participant joined conversation.", p.DisplayName, p.UserAtHost,
+                    p.Uri, MessageType.ConversationInfo, _conversation.Id, MessageDirection.Incoming);
+                _transcriptRecorder.OnMessageReceived(m);
             }
 
             foreach (ConversationParticipant p in e.Removed)
@@ -197,6 +203,10 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
                 Console.WriteLine("{0} is notified of participant leaving the conversation: {1}",
                     conv.LocalParticipant.UserAtHost,
                     p.UserAtHost);
+
+                Message m = new Message("Participant left conversation.", p.DisplayName, p.UserAtHost,
+                    p.Uri, MessageType.ConversationInfo, _conversation.Id, MessageDirection.Incoming);
+                _transcriptRecorder.OnMessageReceived(m);
             }
 
             Console.WriteLine();
@@ -219,15 +229,12 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
                 e.Participant.UserAtHost,
                 e.Properties.Role);
 
-            // TODO: use e.ChangedPropertyNames to report which properties have changed
-
             Console.WriteLine();
 
-            Message m = new Message("Conversation_ParticipantEndpointPropertiesChanged for user: " + e.Participant.DisplayName,
+            Message m = new Message("Conversation Participant Properties changed. Properties changed: " + e.ChangedPropertyNames.ToString()
+                + ". Participant Property Values: " + e.Properties.ToString() + ".",
                 e.Participant.DisplayName, e.Participant.UserAtHost, e.Participant.Uri,
-                DateTime.Now, conv.Id, conv.ConferenceSession.ConferenceUri,
-                MessageModality.ConversationInfo, MessageDirection.Outgoing);
-
+                MessageType.ConversationInfo, conv.Id, MessageDirection.Incoming);
             _transcriptRecorder.OnMessageReceived(m);
         }
 
@@ -263,11 +270,20 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
                             break;
                     }
                 }
+
+                Message m = new Message("Conversation Properties changed. Properties changed: " + e.ChangedPropertyNames.ToString()
+                    + ". Participant Property Values: " + e.Properties.ToString() + ".",
+                    MessageType.ConversationInfo, _conversation.Id);
+                _transcriptRecorder.OnMessageReceived(m);
             }
         }
 
     private void Conversation_EscalateToConferenceRequested(object sender, EscalateToConferenceRequestedEventArgs e)
     {
+        Message m = new Message("Conversation EscalateToConferenceRequested.",
+            MessageType.ConversationInfo, _conversation.Id);
+        _transcriptRecorder.OnMessageReceived(m);
+
         _transcriptRecorder.OnEscalatedConferenceJoinRequested(_conversation);
     }
 

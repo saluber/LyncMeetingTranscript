@@ -64,9 +64,6 @@ namespace LyncMeetingTranscriptClientApplication.Model
         /// </summary>
         public string Content { get; set; }
 
-        // TODO: Default constructors for error messages and conversation/conference "messages"
-        // (where there is no true "sender")
-
         /// <summary>
         /// 
         /// </summary>

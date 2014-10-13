@@ -48,7 +48,8 @@ namespace LyncMeetingTranscriptClientApplication
             catch (LyncClientException lce) { MessageBox.Show("Lyncclientexception: " + lce.Message); }
         }
 
-        private void ShowIncomingTranscriptMessage(Message message)
+        // TODO: Make private later and use ConversationContext channel to write data
+        void ShowIncomingTranscriptMessage(Message message)
         {
             WriteMessageToTranscript(message);
         }

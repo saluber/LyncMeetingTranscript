@@ -25,9 +25,7 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
         private Conversation _conversation;
         private ConferenceSession _conference;
 
-        // TODO: Event handler delegates, create transcriptrecorders for added modalities
-        // Add accept invite, begin join, and begin escalate methods
-
+        #region Properties
         public override TranscriptRecorderType RecorderType
         {
             get { return _type; }
@@ -47,6 +45,7 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
         {
             get { return _conference; }
         }
+        #endregion // Properties
 
         public ConferenceTranscriptRecorder(TranscriptRecorderSession transcriptRecorder, Conversation conversation)
         {
@@ -71,6 +70,10 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
                 ConferenceInvitation invite = result.AsyncState as ConferenceInvitation;
                 // ConferenceInvite already accepted in TranscriptRecorder.ConferenceInvitation_AcceptCompleted()
 
+                Message m = new Message("ConferenceSession.ConferenceInviteAccepted()",
+                   MessageType.ConferenceInfo, _conversation.Id, invite.ConferenceUri);
+                _transcriptRecorder.OnMessageReceived(m);
+
                 ConferenceJoinOptions cjo = new ConferenceJoinOptions();
                 //cjo.JoinAsTrustedApplication = false;
                 _conversation.ConferenceSession.BeginJoin(cjo, EndJoinInvitedConference, invite);
@@ -88,6 +91,8 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
         public void EscalateToConferenceRequested()
         {
             // The conference session of the escalating conversation must be joined.
+
+            // TODO: Escalation message
             _conversation.ConferenceSession.BeginJoin(default(ConferenceJoinOptions), EndJoinEscalatedConference, _conversation.ConferenceSession);
         }
 
@@ -97,7 +102,9 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             {
                 return;
             }
+
             _state = TranscriptRecorderState.Terminated;
+
             // TODO: Shutdown message
 
             if (_conference != null)
@@ -125,9 +132,10 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
 
             Message m = new Message("ConferenceSession state changed from " + e.PreviousState.ToString()
                 + " to new value: " + e.State.ToString() + ".",
-        confSession.Conversation.LocalParticipant.DisplayName, confSession.Conversation.LocalParticipant.UserAtHost, confSession.Conversation.LocalParticipant.Uri,
-        DateTime.Now, confSession.Conversation.Id, confSession.ConferenceUri, MessageModality.ConferenceInfo, MessageDirection.Outgoing);
-
+                confSession.Conversation.LocalParticipant.DisplayName, 
+                confSession.Conversation.LocalParticipant.UserAtHost, 
+                confSession.Conversation.LocalParticipant.Uri,
+                DateTime.Now, confSession.Conversation.Id, confSession.ConferenceUri, MessageType.ConferenceInfo, MessageDirection.Outgoing);
             _transcriptRecorder.OnMessageReceived(m);
 
             if (e.State == ConferenceSessionState.Disconnecting || e.State == ConferenceSessionState.Disconnected)
@@ -149,6 +157,9 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
                     confSession.Conversation.LocalParticipant.UserAtHost,
                     pair.Key.Participant.UserAtHost);
 
+                Message m = new Message("Participant joined conference.", pair.Key.Participant.DisplayName, pair.Key.Participant.UserAtHost,
+                    pair.Key.Participant.Uri, MessageType.ConferenceInfo, _conversation.Id, _conference.ConferenceUri, MessageDirection.Incoming);
+                _transcriptRecorder.OnMessageReceived(m);
             }
 
             foreach (KeyValuePair<ParticipantEndpoint, ConferenceParticipantEndpointProperties> pair in e.Left)
@@ -156,6 +167,10 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
                 Console.WriteLine("{0} is notified of participant leaving the conference: {1}",
                     confSession.Conversation.LocalParticipant.UserAtHost,
                     pair.Key.Participant.UserAtHost);
+
+                Message m = new Message("Participant left conference.", pair.Key.Participant.DisplayName, pair.Key.Participant.UserAtHost,
+                    pair.Key.Participant.Uri, MessageType.ConferenceInfo, _conversation.Id, _conference.ConferenceUri, MessageDirection.Incoming);
+                _transcriptRecorder.OnMessageReceived(m);
             }
 
             Console.WriteLine();
@@ -177,7 +192,12 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
 
             Console.WriteLine();
 
-            // TODO: Conference message
+            Message m = new Message("Conference participant properties changed. Changed properties: " + e.ChangedPropertyNames.ToString() + ". New property values: " + e.Properties.ToString() + ".",
+                e.ParticipantEndpoint.Participant.DisplayName,
+                e.ParticipantEndpoint.Participant.UserAtHost,
+                    e.ParticipantEndpoint.Participant.Uri, MessageType.ConferenceInfo, _conversation.Id,
+                    confSession.ConferenceUri, MessageDirection.Incoming);
+            _transcriptRecorder.OnMessageReceived(m);
         }
 
         // Just to record the state transitions in the console.
@@ -237,8 +257,7 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
 
                 Message m = new Message("ConferenceSession property " + property + " changed to new value: " + propertyValue + ".",
                     confSession.Conversation.LocalParticipant.DisplayName, confSession.Conversation.LocalParticipant.UserAtHost, confSession.Conversation.LocalParticipant.Uri,
-                    DateTime.Now, confSession.Conversation.Id, confSession.ConferenceUri, MessageModality.ConferenceInfo, MessageDirection.Outgoing);
-
+                    DateTime.Now, confSession.Conversation.Id, confSession.ConferenceUri, MessageType.ConferenceInfo, MessageDirection.Outgoing);
                 _transcriptRecorder.OnMessageReceived(m);
             }
 
@@ -247,6 +266,7 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             // TODO: If modalities added, establish calls on new modalities
         }
 
+        // TODO: Register for AV/IM MCU events and implement event handlers
         private void InstantMessagingMcuSession_ParticipantEndpointPropertiesChanged(object sender, ParticipantEndpointPropertiesChangedEventArgs<InstantMessagingMcuParticipantEndpointProperties> e)
         {
             throw new NotImplementedException();

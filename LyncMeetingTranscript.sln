@@ -7,12 +7,11 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LyncMeetingTranscript", "Ly
 	EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LyncMeetingTranscriptBotApp", "LyncMeetingTranscriptBotApplication\LyncMeetingTranscriptBotApp.csproj", "{3778175F-53A3-4F3A-8554-BF8E5E4297E1}"
+	ProjectSection(ProjectDependencies) = postProject
+		{5C25BCB7-4DF6-4746-8B71-740ED37AB47F} = {5C25BCB7-4DF6-4746-8B71-740ED37AB47F}
+	EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LyncMeetingTranscriptClientApp", "LyncMeetingTranscriptClientApplication\LyncMeetingTranscriptClientApp.csproj", "{5C25BCB7-4DF6-4746-8B71-740ED37AB47F}"
-	ProjectSection(ProjectDependencies) = postProject
-		{3778175F-53A3-4F3A-8554-BF8E5E4297E1} = {3778175F-53A3-4F3A-8554-BF8E5E4297E1}
-		{650087E4-C9CE-47F7-980D-5B3898BD858C} = {650087E4-C9CE-47F7-980D-5B3898BD858C}
-	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{833084A6-E0F6-411D-AC16-C94C01775BD1}"
 	ProjectSection(SolutionItems) = preProject

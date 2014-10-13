@@ -10,7 +10,7 @@ namespace LyncMeetingTranscriptBotApplication
 {
     public enum MessageDirection { Incoming, Outgoing };
 
-    public enum MessageModality { Audio, Video, InstantMessage, ConversationInfo, ConferenceInfo, Error }
+    public enum MessageType { Audio, Video, InstantMessage, ConversationInfo, ConferenceInfo, Error, Info }
 
     public class Message
     {
@@ -63,7 +63,7 @@ namespace LyncMeetingTranscriptBotApplication
         /// <summary>
         /// Modality of the message.
         /// </summary>
-        public MessageModality Modality { get; set; }
+        public MessageType MessageType { get; set; }
 
         /// <summary>
         /// Gets or sets the content.
@@ -71,22 +71,14 @@ namespace LyncMeetingTranscriptBotApplication
         /// <value>The content.</value>
         public string Content { get; set; }
 
-        // TODO: Default constructors for error messages and conversation/conference "messages"
-        // (where there is no true "sender")
-
         /// <summary>
-        /// 
+        /// Default constructors for error messages and TranscriptRecordingSessions "messages" (where there is no true "sender")
         /// </summary>
         /// <param name="content"></param>
-        /// <param name="senderDisplayName"></param>
-        /// <param name="senderAlias"></param>
-        /// <param name="senderUri"></param>
         /// <param name="modality"></param>
-        /// <param name="conversationId"></param>
-        /// <param name="messageDirection"></param>
-        public Message(string content, string senderDisplayName, string senderAlias, string senderUri, MessageModality modality,
-            string conversationId, MessageDirection messageDirection = MessageDirection.Incoming)
-            : this(content, senderDisplayName, senderAlias, senderUri, DateTime.Now, conversationId, String.Empty, modality, messageDirection)
+        /// <param name="sessionId"></param>
+        public Message(string content, string sessionId)
+            : this(content, String.Empty, String.Empty, String.Empty, DateTime.Now, sessionId, String.Empty, MessageType.Info, MessageDirection.Outgoing)
         {
         }
 
@@ -99,10 +91,23 @@ namespace LyncMeetingTranscriptBotApplication
         /// <param name="senderUri"></param>
         /// <param name="modality"></param>
         /// <param name="conversationId"></param>
+        /// <param name="messageDirection"></param>
+        public Message(string content, string senderDisplayName, string senderAlias, string senderUri, MessageType modality,
+            string conversationId, MessageDirection messageDirection = MessageDirection.Incoming)
+            : this(content, senderDisplayName, senderAlias, senderUri, DateTime.Now, conversationId, String.Empty, modality, messageDirection)
+        {
+        }
+
+        /// <param name="content"></param>
+        /// <param name="senderDisplayName"></param>
+        /// <param name="senderAlias"></param>
+        /// <param name="senderUri"></param>
+        /// <param name="modality"></param>
+        /// <param name="conversationId"></param>
         /// <param name="conferenceUri"></param>
         /// <param name="messageDirection"></param>
         public Message(string content, string senderDisplayName, string senderAlias, string senderUri,
-            MessageModality modality, string conversationId, string conferenceUri, MessageDirection messageDirection = MessageDirection.Incoming)
+            MessageType modality, string conversationId, string conferenceUri, MessageDirection messageDirection = MessageDirection.Incoming)
             : this(content, senderDisplayName, senderAlias, senderUri, DateTime.Now, conversationId, conferenceUri, modality, messageDirection)
         {
         }
@@ -113,7 +118,7 @@ namespace LyncMeetingTranscriptBotApplication
         /// <param name="content"></param>
         /// <param name="modality"></param>
         /// <param name="conversationId"></param>
-        public Message(string content, MessageModality modality, string conversationId)
+        public Message(string content, MessageType modality, string conversationId)
             : this(content, String.Empty, String.Empty, String.Empty, DateTime.Now, conversationId, String.Empty, modality, MessageDirection.Outgoing)
         {
         }
@@ -125,7 +130,7 @@ namespace LyncMeetingTranscriptBotApplication
         /// <param name="modality"></param>
         /// <param name="conversationId"></param>
         /// <param name="conferenceUri"></param>
-        public Message(string content, MessageModality modality, string conversationId, string conferenceUri)
+        public Message(string content, MessageType modality, string conversationId, string conferenceUri)
             : this(content, String.Empty, String.Empty, String.Empty, DateTime.Now, conversationId, conferenceUri, modality, MessageDirection.Outgoing)
         {
         }
@@ -140,7 +145,7 @@ namespace LyncMeetingTranscriptBotApplication
         /// <param name="conversationId">The conversation id.</param>
         /// <param name="conferenceUri">The conference URI.</param>
         public Message(string content, string senderDisplayName, string senderAlias, string senderUri, DateTime timeStamp,
-            string conversationId, string conferenceUri, MessageModality modality, MessageDirection direction = MessageDirection.Incoming)
+            string conversationId, string conferenceUri, MessageType modality, MessageDirection direction = MessageDirection.Incoming)
         {
             this.Content = content;
             this.SenderDisplayName = SenderDisplayName;
@@ -149,13 +154,9 @@ namespace LyncMeetingTranscriptBotApplication
             this.TimeStamp = timeStamp;
             this.ConversationId = conversationId;
             this.ConferenceUri = conferenceUri;
-            this.Modality = modality;
+            this.MessageType = modality;
             this.Direction = direction;
         }
-
-        // TODO: Print messages should take MessageModality into account
-        // Conversation/conversation/error messages should omit "sender" properties
-        // and use conversation id or conference Uri instead
 
         /// <summary>
         /// Returns a <see cref="System.String"/> that represents this instance.
@@ -165,13 +166,23 @@ namespace LyncMeetingTranscriptBotApplication
         /// </returns>
         public override string ToString()
         {
-            String s =
-                "Timestamp: " + TimeStamp.ToShortTimeString() + "\n"
-                + "Sender: " + SenderDisplayName + " (" + SenderAlias + ")\n"
-                + "Conversation Id: " + ConversationId + "\n"
-                + "Conference Uri: " + ConferenceUri + "\n"
-                + "Direction: " + Direction.ToString() + "\n"
-                + "Modality: " + Modality.ToString() + "\n"
+            String s = "Timestamp: " + TimeStamp.ToString() + "\n";
+            
+            if (!String.IsNullOrEmpty(SenderDisplayName))
+            { 
+                s += "Sender: " + SenderDisplayName + " (" + SenderAlias + ")(" + SenderUri + ")\n"; 
+            }
+            if (!String.IsNullOrEmpty(ConversationId))
+            {
+                s += "Conversation Id: " + ConversationId + "\n";
+            }
+            if (!String.IsNullOrEmpty(ConferenceUri))
+            {
+                s += "Conference Uri: " + ConferenceUri + "\n";
+            }
+                
+             s += "Direction: " + Direction.ToString() + "\n"
+                + "Message Type: " + MessageType.ToString() + "\n"
                 + "Message Content: " + Content + "\n"
                 + "-----------------------------------------------\n";
 
@@ -180,11 +191,24 @@ namespace LyncMeetingTranscriptBotApplication
 
         internal string ToTranscriptString()
         {
-            String s =
-                "[" + SenderDisplayName + " (" + SenderAlias + ")]"
-                + "[" + Modality.ToString() + "]"
-                + "[" + TimeStamp.ToShortTimeString() + "]"
-                + ": " + Content + "\n";
+            String s = "[" + TimeStamp.ToString() + "]";
+
+            if (!String.IsNullOrEmpty(ConferenceUri))
+            {
+                s = "[ConferenceUri:" + ConferenceUri + "]" + s;
+            }
+            if (!String.IsNullOrEmpty(ConversationId))
+            {
+                s = "[ConversationId:" + ConversationId + "]" + s;
+            }
+            if (!String.IsNullOrEmpty(SenderDisplayName))
+            {
+                s = "[" + SenderDisplayName + " (" + SenderAlias + ")(" + SenderUri + ")]" + s;
+            }
+
+            s = "[" + MessageType.ToString() + "][" + Direction.ToString() + "]" + s;
+
+            s += " : " + Content + "\n";
 
             return s;
         }
