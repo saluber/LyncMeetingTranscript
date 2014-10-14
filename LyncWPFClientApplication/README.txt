@@ -15,7 +15,7 @@ Prerequisites (for running installed sample on client machines)
 ================================================
 Install instructions:
 ================================================
-1. The following table describes the three registry entries. Add the context application GUID ({5c25bcb7-4df6-4746-8b71-740ed37ab47f}) as a key under either of these two paths:
+1. The following table describes the two registry entries. Add the context application GUID ({5c25bcb7-4df6-4746-8b71-740ed37ab47f}) as a key under either of these two paths:
 HKEY_CURRENT_USER\Software\Microsoft\Communicator\ContextPackages
 HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\Communicator\ContextPackages
 
@@ -29,6 +29,7 @@ Troubleshooting Resources:
 ================================================
 How to use the application:
 ================================================
+0. Prior to started application, start Lync (client application) and login in with credentials
 1. Run LyncMeetingTranscriptBotApplication.exe
 2. Call app endpoint URI specified in App.config
 

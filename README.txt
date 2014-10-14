@@ -1,6 +1,9 @@
 ------------------------------------------------------------------
-Meeting Transcript
-By: Samantha Luber (samil@microsoft.com)
+Lync Meeting Transcript
+By: Samantha Luber (samil AT microsoft.com)
+Project site: https://github.com/saluber/LyncMeetingTranscript
+Application Name: Lync Meeting Transcript
+Application ID: 5c25bcb7-4df6-4746-8b71-740ed37ab47f
 ------------------------------------------------------------------
 Overview:
 Lync is a great tool for communication and collaboration across various business units. It offers a wide variety of capabilities including conferencing.
@@ -14,26 +17,28 @@ Recording is a key capability that Lync conferencing currently supports. It help
 Lync recording need to be manually started/stopped for the meeting that the user wishes to record and it will produce a single file of the meeting recording, forcing the user to play through the entire meeting recording in order to review what was covered. Take the scenario of of cross team meeting. For some reason, you missed the meeting. You are interested to know what is discussed about your team and project. 
 
 Lync Meeting Transcript will help you to search through the test and get you to the exact point where your team details are discussed.
-
-Here is a how it works:
--You need thr start the Lync conference
--Start the application
--...
-
-Here is a quick Demo of Lync Meeting Transcript application:
-- Double click on the application
-- Explain the options
-- Try to do a search
 ------------------------------------------------------------------
-Template: http://code.msdn.microsoft.com/Lync-2010-Creating-Call-fade42f0#content
-
 Setup:
 Client Application:
 Installing the client appliation: http://msdn.microsoft.com/en-us/library/office/jj933101(v=office.15).aspx
 
 Server Application:
 Register server application: http://stackoverflow.com/questions/25075372/ucma-steps-to-create-trusted-application
+
+The following table describes the two registry entries. Add the context application GUID ({5c25bcb7-4df6-4746-8b71-740ed37ab47f}) as a key under either of these two paths:
+HKEY_CURRENT_USER\Software\Microsoft\Communicator\ContextPackages
+HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\Communicator\ContextPackages
+
+Example:
+[HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Microsoft\Communicator\ContextPackages\{5c25bcb7-4df6-4746-8b71-740ed37ab47f}]
+"Name"="Lync Meeting Transcript"
+
+Troubleshooting Resources:
+	- Registering client application to recieve messages over ConversationContext channel: http://msdn.microsoft.com/en-us/library/hh243694.aspx
 ------------------------------------------------------------------
 Usage:
-
+Server-side application: LyncMeetingTranscriptBotApp
+	- See LyncMeetingTranscriptBotApp\README.txt
+Client-side application: LyncWPFClientApplication
+	- See LyncWPFClientApplication\README.txt
 ------------------------------------------------------------------

@@ -20,6 +20,7 @@ namespace LyncMeetingTranscriptBotApplication
 
         private UcmaHelper _helper;
         private UserEndpoint _userEndpoint;
+        private bool _isTerminating = false;
         private Dictionary<Conversation, TranscriptRecorderSession> _activeConversationSessions;
         private Dictionary<ConferenceSession, TranscriptRecorderSession> _activeConferenceSessions;
 
@@ -145,7 +146,13 @@ namespace LyncMeetingTranscriptBotApplication
 
         public void Shutdown()
         {
+            if (_isTerminating)
+            {
+                return;
+            }
+
             Console.WriteLine("Shutdown - Entry");
+            _isTerminating = true;
             try
             {
                 SaveTranscripts();
