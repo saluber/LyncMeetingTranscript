@@ -106,6 +106,7 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             if (_audioVideoCall != null)
             {
                 _audioVideoCall.BeginTerminate(AudioVideoCallTerminated, _audioVideoCall);
+                _audioVideoCall.Flow.StateChanged -= AudioVideoFlow_StateChanged;
                 _audioVideoCall.StateChanged -= AudioVideoCall_StateChanged;
                 _audioVideoCall.AudioVideoFlowConfigurationRequested -= AudioVideoCall_FlowConfigurationRequested;
                 _audioVideoCall.ConversationChanged -= AudioVideoCall_ConversationChanged;
@@ -367,10 +368,13 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
         {
             Console.WriteLine("AV flow state changed from " + e.PreviousState + " to " + e.State);
 
-            Message m = new Message("AudioVideoFlow changed from " + e.PreviousState + " to " + e.State + ".",
-                MessageType.Audio,
-                _transcriptRecorder.Conversation.Id);
-            _transcriptRecorder.OnMessageReceived(m);
+            if (_transcriptRecorder != null)
+            {
+                Message m = new Message("AudioVideoFlow changed from " + e.PreviousState + " to " + e.State + ".",
+                    MessageType.Audio,
+                    _transcriptRecorder.Conversation.Id);
+                _transcriptRecorder.OnMessageReceived(m);
+            }
 
             //When flow is active, media operations can begin
             if (e.State == MediaFlowState.Active)
@@ -378,14 +382,14 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
                 // Flow-related media operations normally begin here.
                 _waitForAudioVideoFlowStateChangedToActiveCompleted.Set();
 
-                if (!_speechRecognizer.IsActive)
+                if ((_speechRecognizer != null) && !_speechRecognizer.IsActive)
                 {
                     _speechRecognizer.AttachAndStartSpeechRecognition(_audioVideoFlow);
                 }
             }
             else if (e.State == MediaFlowState.Terminated)
             {
-                if (_speechRecognizer.IsActive)
+                if ((_speechRecognizer != null) && _speechRecognizer.IsActive)
                 {
                     _speechRecognizer.StopSpeechRecognition();
                 }

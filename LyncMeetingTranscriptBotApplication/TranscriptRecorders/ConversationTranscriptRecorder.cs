@@ -110,8 +110,8 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             }
             else
             {
-                TerminateConversation();
                 _transcriptRecorder.OnMediaTranscriptRecorderTerminated(this);
+                TerminateConversation();
             }
             _transcriptRecorder = null;
         }

@@ -17,7 +17,7 @@ namespace LyncMeetingTranscriptClientApplication
     public partial class App : Application
     {
         private const string _appName = "Lync Meeting Transcript";
-        private const string _appId = "{97AD7B8A-3220-4855-8D1E-E70BB0973C4D}";
+        private const string _appId = "{5c25bcb7-4df6-4746-8b71-740ed37ab47f}";
 
         /// <summary>
         /// Service name.
@@ -29,7 +29,7 @@ namespace LyncMeetingTranscriptClientApplication
         private const string TranscriptOutputFolderPathKey = "OutputFolderPath";
         private const string ReadInstantMessagesKey = "ReadInstantMessagesKey";
 
-        private static string _outputFolderPath = "C:\\LyncMeetingTranscriptLogs";
+        private static string _outputFolderPath = System.Environment.CurrentDirectory;
 
         private static MainViewModel _viewModel;
 

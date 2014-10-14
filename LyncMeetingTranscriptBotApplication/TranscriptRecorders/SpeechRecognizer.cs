@@ -251,7 +251,7 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
                 this.StopSpeechRecognition();
             }
 
-            if (!String.IsNullOrEmpty(messageText))
+            if (!String.IsNullOrEmpty(messageText) && (this._transcriptRecorder != null))
             {
                 Conversation conv = _audioVideoFlow.Call.Conversation;
                 ConversationParticipant speaker = _audioVideoFlow.Call.RemoteEndpoint.Participant;

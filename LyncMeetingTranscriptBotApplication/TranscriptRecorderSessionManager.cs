@@ -160,6 +160,8 @@ namespace LyncMeetingTranscriptBotApplication
                 {
                     foreach (TranscriptRecorderSession t in _activeConversationSessions.Values)
                     {
+                        t.TranscriptRecorderSessionChanged -= this.TranscriptRecorder_OnTranscriptRecorderSessionChanged;
+                        t.TranscriptRecorderSessionShutdown -= this.TranscriptRecorder_OnTranscriptRecorderSessionShutdown;
                         t.Shutdown();
                     }
 
@@ -170,6 +172,8 @@ namespace LyncMeetingTranscriptBotApplication
                 {
                     foreach (TranscriptRecorderSession t in _activeConferenceSessions.Values)
                     {
+                        t.TranscriptRecorderSessionChanged -= this.TranscriptRecorder_OnTranscriptRecorderSessionChanged;
+                        t.TranscriptRecorderSessionShutdown -= this.TranscriptRecorder_OnTranscriptRecorderSessionShutdown;
                         t.Shutdown();
                     }
 
@@ -351,6 +355,8 @@ namespace LyncMeetingTranscriptBotApplication
             {
                 Conversation c = e.Call.Conversation;
                 TranscriptRecorderSession t = new TranscriptRecorderSession(e);
+                t.TranscriptRecorderSessionChanged += this.TranscriptRecorder_OnTranscriptRecorderSessionChanged;
+                t.TranscriptRecorderSessionShutdown += this.TranscriptRecorder_OnTranscriptRecorderSessionShutdown;
                 _activeConversationSessions.Add(c, t);
             }
             else if (e.IsConferenceDialOut)
@@ -399,6 +405,8 @@ namespace LyncMeetingTranscriptBotApplication
             {
                 Conversation c = e.Call.Conversation;
                 TranscriptRecorderSession t = new TranscriptRecorderSession(e);
+                t.TranscriptRecorderSessionChanged += this.TranscriptRecorder_OnTranscriptRecorderSessionChanged;
+                t.TranscriptRecorderSessionShutdown += this.TranscriptRecorder_OnTranscriptRecorderSessionShutdown;
                 _activeConversationSessions.Add(c, t);
             }
             else if (e.IsConferenceDialOut)
@@ -517,6 +525,8 @@ conversation.ConferenceSession.AudioVideoMcuSession.BeginDialOut("tel:+142555512
 
             if (shutdownSession != null)
             {
+                shutdownSession.TranscriptRecorderSessionChanged -= this.TranscriptRecorder_OnTranscriptRecorderSessionChanged;
+                shutdownSession.TranscriptRecorderSessionShutdown -= this.TranscriptRecorder_OnTranscriptRecorderSessionShutdown;
                 Console.WriteLine("TranscriptRecorder_OnTranscriptRecorderSessionShutdown: Saving Transcript of shutdown TranscriptRecorderSession. SessionId: {0}",
                     shutdownSession.SessionId);
                 SaveTranscript(shutdownSession);
@@ -524,6 +534,11 @@ conversation.ConferenceSession.AudioVideoMcuSession.BeginDialOut("tel:+142555512
             else
             {
                 Console.WriteLine("TranscriptRecorder_OnTranscriptRecorderSessionShutdown: TranscriptRecorderSession doesn't exist or was already shutdown");
+            }
+
+            if (_activeConferenceSessions.Count == 0 && _activeConversationSessions.Count == 0)
+            {
+                this.Shutdown();
             }
         }
 

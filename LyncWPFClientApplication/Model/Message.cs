@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace LyncMeetingTranscriptClientApplication.Model
+namespace LyncWPFClientApplication.Model
 {
     public enum MessageDirection { Incoming, Outgoing };
 

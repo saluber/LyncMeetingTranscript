@@ -12,7 +12,7 @@ namespace LyncMeetingTranscriptBotApplication
 
         public const string ApplicationName = "Lync Meeting Transcript";
 
-        public const string ApplicationId = "97AD7B8A-3220-4855-8D1E-E70BB0973C4D";
+        public const string ApplicationId = "5c25bcb7-4df6-4746-8b71-740ed37ab47f";
 
         public const string Toast = "Lync Meeting Transcript";
 

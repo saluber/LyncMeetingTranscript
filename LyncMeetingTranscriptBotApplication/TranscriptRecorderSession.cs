@@ -96,7 +96,7 @@ namespace LyncMeetingTranscriptBotApplication
         #region Fields
 
         private const string _appName = "Lync Meeting Transcript";
-        private Guid _appId = new Guid("97AD7B8A-3220-4855-8D1E-E70BB0973C4D");
+        private Guid _appId = new Guid("5c25bcb7-4df6-4746-8b71-740ed37ab47f");
         private Guid _sessionId;
         private TranscriptRecorderState _state = TranscriptRecorderState.Initialized;
 
@@ -435,8 +435,7 @@ namespace LyncMeetingTranscriptBotApplication
         internal void OnMediaTranscriptRecorderTerminated(MediaTranscriptRecorder terminatedRecorder)
         {
             // Add shutdown message for MediaTranscriptRecorder
-            Message m = new Message("MediaTranscriptRecorder shutdown for MediaType: " + terminatedRecorder.RecorderType.ToString(),
-                MessageType.Info, _conversation.Id);
+            Message m = new Message("MediaTranscriptRecorder shutdown for MediaType: " + terminatedRecorder.RecorderType.ToString(), this._sessionId.ToString());
             this.OnMessageReceived(m);
 
             if (_transcriptRecorders.Contains(terminatedRecorder))
