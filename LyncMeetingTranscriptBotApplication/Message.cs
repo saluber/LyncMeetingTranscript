@@ -189,6 +189,11 @@ namespace LyncMeetingTranscriptBotApplication
             return s;
         }
 
+        /// <summary>
+        /// Formats Message into ContextualData format:
+        /// [SenderDisplayName (senderAlias@senderHost.com)(sip:senderAlias@senderHost.com)][ConversationId:12345678][ConferenceUri:senderAlias@senderHost.com;conf][TImeStamp][MessageType][MessageDirection][MessageContent]
+        /// </summary>
+        /// <returns></returns>
         internal string ToTranscriptString()
         {
             String s = "[" + TimeStamp.ToString() + "]";
@@ -197,18 +202,32 @@ namespace LyncMeetingTranscriptBotApplication
             {
                 s = "[ConferenceUri:" + ConferenceUri + "]" + s;
             }
+            else
+            {
+                s = "[ConferenceUri:null]" + s;
+            }
+
             if (!String.IsNullOrEmpty(ConversationId))
             {
                 s = "[ConversationId:" + ConversationId + "]" + s;
             }
+            else
+            {
+                s = "[ConversationId:null]" + s;
+            }
+
             if (!String.IsNullOrEmpty(SenderDisplayName))
             {
                 s = "[" + SenderDisplayName + " (" + SenderAlias + ")(" + SenderUri + ")]" + s;
             }
+            else
+            {
+                s = "[null]" + s;
+            }
 
             s = "[" + MessageType.ToString() + "][" + Direction.ToString() + "]" + s;
 
-            s += " : " + Content + "\n";
+            s += "[MessageContent:" + Content + "]\n";
 
             return s;
         }

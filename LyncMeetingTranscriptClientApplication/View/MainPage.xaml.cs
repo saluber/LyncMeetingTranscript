@@ -14,6 +14,7 @@ using System.Windows.Media.Animation;
 using System.Windows.Shapes;
 using Microsoft.Lync.Model;
 using Microsoft.Lync.Model.Conversation;
+using Microsoft.Lync.Model.Extensibility;
 
 using LyncMeetingTranscriptClientApplication.Model;
 using LyncMeetingTranscriptClientApplication.Service;
@@ -30,6 +31,9 @@ namespace LyncMeetingTranscriptClientApplication
         private LyncClient _lyncClient;
         private Conversation _conversation;
 
+        ApplicationRegistration _myApplicationRegistration;
+        ConversationWindow _cWindow;
+
         public MainPage()
         {
             InitializeComponent();
@@ -43,6 +47,12 @@ namespace LyncMeetingTranscriptClientApplication
                 // Get the instance of LyncClient and subscribe to outgoing/incoming conversation events
                 _lyncClient = LyncClient.GetClient();
                 _lyncClient.StateChanged += new EventHandler<ClientStateChangedEventArgs>(LyncClient_StateChanged);
+
+                _conversation = (Conversation)Microsoft.Lync.Model.LyncClient.GetHostingConversation();
+
+                // Perform run-time registration using the ApplicationRegistration class.
+                _myApplicationRegistration = _lyncClient.CreateApplicationRegistration(App.AppId, App.AppName);
+                this._myApplicationRegistration.AddRegistration();
             }
             catch (ClientNotFoundException) { Console.WriteLine("Lync client was not found on startup"); }
             catch (LyncClientException lce) { MessageBox.Show("Lyncclientexception: " + lce.Message); }
@@ -104,6 +114,17 @@ namespace LyncMeetingTranscriptClientApplication
             if (e.NewState == ConversationState.Terminated)
             {
                 // TODO: Handle conversation state change events
+
+                if (_myApplicationRegistration != null)
+                {
+                    // Unregister Run-Time Registration for application context.
+                    _myApplicationRegistration.RemoveRegistration();
+                }
+
+                if (_cWindow != null)
+                {
+                    this._cWindow.Close();
+                }
             }
         }
 
@@ -120,7 +141,11 @@ namespace LyncMeetingTranscriptClientApplication
                 return;
             }
 
-            // Do app setup stuff
+            List<Message> messages = ParseMessagesFromContextData(e.ApplicationData);
+            foreach (Message m in messages)
+            {
+                ShowIncomingTranscriptMessage(m);
+            }
         }
 
         /// <summary>
@@ -137,15 +162,84 @@ namespace LyncMeetingTranscriptClientApplication
                 return;
             }
 
-            // TODO: Parse transcript item(s) from context contents
-            /*
-            this.Dispatcher.BeginInvoke(() =>
+            List<Message> messages = ParseMessagesFromContextData(e.ContextData);
+            foreach (Message m in messages)
             {
-                ShowIncomingTranscriptMessage(message);
-            });
-            */
+                ShowIncomingTranscriptMessage(m);
+            }
         }
 
         #endregion // Event Handlers
+
+        /// <summary>
+        /// Parses context data into List of Messages based on format:
+        /// [SenderDisplayName (senderAlias@senderHost.com)(sip:senderAlias@senderHost.com)][ConversationId:12345678][ConferenceUri:senderAlias@senderHost.com;conf][TimeStamp][MessageType][MessageDirection][MessageContent];;
+        /// </summary>
+        /// <param name="contextData"></param>
+        /// <returns></returns>
+        private List<Message> ParseMessagesFromContextData(string contextData)
+        {
+            List<Message> transcriptMessages = new List<Message>();
+
+            // Split messages
+            char[] transcriptMessagesDelimiter = { ';', ';' };
+            string[] transcriptMessageData = contextData.Split(transcriptMessagesDelimiter);
+
+            char[] messagePropertyDelimiter = { ']', '[' };
+            char[] messageSenderInfoDelimiter = { '(' };
+            foreach (string s in transcriptMessageData)
+            {
+                // Split message content
+                string senderInfo = "null";
+                string senderDisplayName = "null";
+                string senderAlias = "null";
+                string senderUri = "null";
+                string conversationId = "null";
+                string conferenceUri = "null";
+                string timeStamp = DateTime.Now.ToString();
+                string messageType = "Info";
+                string messageDirection = "Incoming";
+                string messageContent = "null";
+
+                string[] messageProperties = s.Split(messagePropertyDelimiter);
+                // Verify 7 items in messageProperties
+                if (messageProperties.Length == 7)
+                {
+                    senderInfo = messageProperties[0].Substring(1);
+                    conversationId = messageProperties[1].Substring(1);
+                    conferenceUri = messageProperties[2].Substring(1);
+                    timeStamp = messageProperties[3].Substring(1);
+                    messageType = messageProperties[4].Substring(1);
+                    messageDirection = messageProperties[5].Substring(1);
+                    messageContent = messageProperties[6].Substring(1);
+
+                    if (senderInfo.Contains('('))
+                    {
+                        string[] senderInfoItems = senderInfo.Split(messageSenderInfoDelimiter);
+                        senderDisplayName = senderInfoItems[0].Trim();
+                        senderAlias = senderInfoItems[1].Substring(0, senderInfoItems[1].Length - 1).Trim();
+                        senderAlias = senderInfoItems[2].Substring(0, senderInfoItems[2].Length - 1).Trim();
+                    }
+                    else
+                    {
+                        senderDisplayName = senderInfo.Trim();
+                    }
+                }
+                else
+                {
+                    // TODO: Error
+                    continue;
+                }
+
+                MessageModality modality = MessageModality.Info;
+                Enum.TryParse<MessageModality>(messageType, true, out modality);
+                MessageDirection direction = MessageDirection.Incoming;
+                Enum.TryParse<MessageDirection>(messageDirection, true, out direction);
+                Message m = new Message(messageContent, senderDisplayName, senderAlias, senderUri, DateTime.Parse(timeStamp), conversationId, conferenceUri, modality, direction);
+                transcriptMessages.Add(m);
+            } // loop
+
+            return transcriptMessages;
+        }
     }
 }

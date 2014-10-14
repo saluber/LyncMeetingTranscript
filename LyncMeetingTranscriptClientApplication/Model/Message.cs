@@ -8,7 +8,7 @@ namespace LyncMeetingTranscriptClientApplication.Model
 {
     public enum MessageDirection { Incoming, Outgoing };
 
-    public enum MessageModality { Audio, Video, InstantMessage, ConversationInfo, ConferenceInfo, Error }
+    public enum MessageModality { Audio, Video, InstantMessage, ConversationInfo, ConferenceInfo, Error, Info }
 
     public class Message
     {

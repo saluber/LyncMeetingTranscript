@@ -243,6 +243,14 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             {
                 InstantMessagingCall imCall = result.AsyncState as InstantMessagingCall;
                 imCall.EndEstablish(result);
+
+                Message m = new Message("InstantMessagingCall Established. Call state: " + _instantMessagingCall.State.ToString() + ". CallId: " + _instantMessagingCall.CallId + ".",
+                    _instantMessagingCall.RemoteEndpoint.Participant.DisplayName, _instantMessagingCall.RemoteEndpoint.Participant.UserAtHost,
+                    _instantMessagingCall.RemoteEndpoint.Participant.Uri,
+                    MessageType.InstantMessage, _transcriptRecorder.Conversation.Id, MessageDirection.Incoming);
+                _transcriptRecorder.OnMessageReceived(m);
+
+                _transcriptRecorder.OnRemoteParticipantAdded(imCall.RemoteEndpoint);
             }
             catch (RealTimeException ex)
             {
@@ -251,12 +259,6 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             }
             finally
             {
-                Message m = new Message("InstantMessagingCall Established. Call state: " + _instantMessagingCall.State.ToString() + ". CallId: " + _instantMessagingCall.CallId + ".",
-                    _instantMessagingCall.RemoteEndpoint.Participant.DisplayName, _instantMessagingCall.RemoteEndpoint.Participant.UserAtHost,
-                    _instantMessagingCall.RemoteEndpoint.Participant.Uri,
-                    MessageType.InstantMessage, _transcriptRecorder.Conversation.Id, MessageDirection.Incoming);
-                _transcriptRecorder.OnMessageReceived(m);
-
                 _state = TranscriptRecorderState.Active;
                 this._waitForIMCallEstablished.Set();
             }
@@ -401,6 +403,14 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             {
                 // Determine whether the call was accepted successfully.
                 instantMessagingCall.EndAccept(ar);
+
+                Message m = new Message("InstantMessagingCall Accepted. Call state: " + instantMessagingCall.State.ToString() + ". CallId: " + instantMessagingCall.CallId + ".",
+                    instantMessagingCall.RemoteEndpoint.Participant.DisplayName, instantMessagingCall.RemoteEndpoint.Participant.UserAtHost,
+                    instantMessagingCall.RemoteEndpoint.Participant.Uri,
+                    MessageType.InstantMessage, _transcriptRecorder.Conversation.Id, MessageDirection.Incoming);
+                _transcriptRecorder.OnMessageReceived(m);
+
+                _transcriptRecorder.OnRemoteParticipantAdded(instantMessagingCall.RemoteEndpoint);
             }
             catch (RealTimeException exception)
             {

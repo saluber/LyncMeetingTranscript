@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net.Mime;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -94,6 +95,8 @@ namespace LyncMeetingTranscriptBotApplication
 
         #region Fields
 
+        private const string _appName = "Lync Meeting Transcript";
+        private Guid _appId = new Guid("97AD7B8A-3220-4855-8D1E-E70BB0973C4D");
         private Guid _sessionId;
         private TranscriptRecorderState _state = TranscriptRecorderState.Initialized;
 
@@ -107,7 +110,7 @@ namespace LyncMeetingTranscriptBotApplication
         private ConversationTranscriptRecorder _conversationTranscriptRecorder;
 
         private ParticipantEndpoint _remoteEndpoint;
-         
+        private ConversationContextChannel _convContextChannel;
 
         // TODO: wtf is this data structure choice? fix it.
         private List<MediaTranscriptRecorder> _transcriptRecorders;
@@ -343,6 +346,8 @@ namespace LyncMeetingTranscriptBotApplication
                 {
                     _waitForConversationTerminated.Set();
                 }
+
+                ShutdownConversationContext();
             }
             catch (Exception e)
             {
@@ -405,13 +410,17 @@ namespace LyncMeetingTranscriptBotApplication
             }
         }
 
-        internal void OnMessageReceived(Message m)
+        internal void OnMessageReceived(Message m, string appId = null)
         {
             Console.WriteLine("Message logged: " + m.ToString());
 
-            // TODO: Write message to Lync client app or output file
-
             _messages.Add(m);
+
+            if (_convContextChannel != null)
+            {
+                ContentType contentType = new ContentType();
+                _convContextChannel.BeginSendData(contentType, Constants.GetBytes(MessageToContextualData(m)), this.BeginContextSendDataCB, null);
+            }
         }
 
         internal void OnMediaTranscriptRecorderError(Message m)
@@ -534,12 +543,99 @@ namespace LyncMeetingTranscriptBotApplication
             }
         }
 
-        private void InitClientApplication()
+        internal void OnRemoteParticipantAdded(ParticipantEndpoint clientEndpoint)
         {
+            if (_remoteEndpoint == null)
+            {
+                _remoteEndpoint = clientEndpoint;
+                InitConversationContext();
+            }
+        }
 
+        private void InitConversationContext()
+        {
+            if (_convContextChannel != null)
+            {
+                _convContextChannel = new ConversationContextChannel(_conversation, _remoteEndpoint);
+                ConversationContextChannelEstablishOptions options = new ConversationContextChannelEstablishOptions();
+
+                options.ContextualData = GetTranscriptMessageContextualData();
+                _convContextChannel.BeginEstablish(_appId, options, BeginContextEstablishCB, null);
+            }
+        }
+
+        private string GetTranscriptMessageContextualData()
+        {
+            string contextualData = "";
+            foreach (Message m in _messages)
+            {
+                contextualData += MessageToContextualData(m);
+            }
+
+            return contextualData;
+        }
+
+        private string MessageToContextualData(Message m)
+        {
+            return m.ToTranscriptString() + ";;";
+        }
+
+        private void ShutdownConversationContext()
+        {
+            if (_convContextChannel != null)
+            {
+                _convContextChannel.BeginTerminate(BeginContextTerminateCB, null);
+            }
         }
 
         #region Callbacks
+
+        // Callback for BeginContextSendData on the context channel.
+        void BeginContextSendDataCB(IAsyncResult res)
+        {
+            try
+            {
+                _convContextChannel.EndSendData(res);
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine("Error: Context channel SendData failed with exception: " + e.ToString());
+            }
+        }
+
+        // Callback for BeginContextTerminate on the context channel.
+        void BeginContextTerminateCB(IAsyncResult res)
+        {
+            try
+            {
+                if (_convContextChannel.State == ConversationContextChannelState.Terminating)
+                {
+                    Console.WriteLine("Context channel is in the Terminating state");
+                    _convContextChannel.EndTerminate(res);
+                }
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine("Error: Context channel terminate failed with exception: " + e.ToString());
+            }
+        }
+
+        // Callback for BeginContextEstablish on the context channel.
+        void BeginContextEstablishCB(IAsyncResult res)
+        {
+            try
+            {
+                if (_convContextChannel.State == ConversationContextChannelState.Establishing)
+                {
+                    Console.WriteLine("Context channel is in the Establishing state");
+                    _convContextChannel.EndEstablish(res);
+                }
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine("Error: Context channel establish failed with exception: " + e.ToString());
+            }
+        }
 
         private void ConferenceInvitation_AcceptCompleted(IAsyncResult result)
         {

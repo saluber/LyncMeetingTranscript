@@ -260,6 +260,14 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             {
                 AudioVideoCall avCall = result.AsyncState as AudioVideoCall;
                 avCall.EndEstablish(result);
+
+               Message m = new Message("AudioVideoCall Established. Call state: " + _audioVideoCall.State.ToString() + ". CallId: " + _audioVideoCall.CallId + ".",
+                    _audioVideoCall.RemoteEndpoint.Participant.DisplayName, _audioVideoCall.RemoteEndpoint.Participant.UserAtHost,
+                    _audioVideoCall.RemoteEndpoint.Participant.Uri,
+                    MessageType.Audio, _transcriptRecorder.Conversation.Id, MessageDirection.Incoming);
+                _transcriptRecorder.OnMessageReceived(m);
+
+                _transcriptRecorder.OnRemoteParticipantAdded(avCall.RemoteEndpoint);
             }
             catch (RealTimeException ex)
             {
@@ -268,12 +276,6 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             }
             finally
             {
-                Message m = new Message("AudioVideoCall Established. Call state: " + _audioVideoCall.State.ToString() + ". CallId: " + _audioVideoCall.CallId + ".",
-                    _audioVideoCall.RemoteEndpoint.Participant.DisplayName, _audioVideoCall.RemoteEndpoint.Participant.UserAtHost,
-                    _audioVideoCall.RemoteEndpoint.Participant.Uri,
-                    MessageType.Audio, _transcriptRecorder.Conversation.Id, MessageDirection.Incoming);
-                _transcriptRecorder.OnMessageReceived(m);
-
                 _state = TranscriptRecorderState.Active;
                 _waitForAudioVideoCallEstablished.Set();
             }
@@ -409,6 +411,13 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
                 call.EndAccept(ar);
 
                 Console.WriteLine("Inbound AudioVideo call with Local Participant: " + call.Conversation.LocalParticipant + " and Remote Participant: " + call.RemoteEndpoint.Participant + " has been accepted.");
+
+                Message m = new Message("AudioVideoCall Accepted. Call state: " + _audioVideoCall.State.ToString(),
+                    call.RemoteEndpoint.Participant.DisplayName, call.RemoteEndpoint.Participant.UserAtHost, call.RemoteEndpoint.Participant.Uri,
+                    MessageType.Audio, _transcriptRecorder.Conversation.Id, MessageDirection.Outgoing);
+                _transcriptRecorder.OnMessageReceived(m);
+
+                _transcriptRecorder.OnRemoteParticipantAdded(call.RemoteEndpoint);
             }
             catch (RealTimeException exception)
             {

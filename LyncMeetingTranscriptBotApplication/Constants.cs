@@ -12,7 +12,7 @@ namespace LyncMeetingTranscriptBotApplication
 
         public const string ApplicationName = "Lync Meeting Transcript";
 
-        public const string ApplicationId = "40499119-4B60-45A6-9A7A-DC7A384D5670";
+        public const string ApplicationId = "97AD7B8A-3220-4855-8D1E-E70BB0973C4D";
 
         public const string Toast = "Lync Meeting Transcript";
 
@@ -21,5 +21,14 @@ namespace LyncMeetingTranscriptBotApplication
         public const string SimpleLink = "Lync Meeting Transcript";
 
         #endregion // Conversation Context Constants
+
+        #region Utility Helper Methods
+        public static byte[] GetBytes(string str)
+        {
+            byte[] bytes = new byte[str.Length * sizeof(char)];
+            System.Buffer.BlockCopy(str.ToCharArray(), 0, bytes, 0, bytes.Length);
+            return bytes;
+        }
+        #endregion // Utility Helper Methods
     }
 }
