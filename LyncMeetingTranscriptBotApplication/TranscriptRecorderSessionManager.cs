@@ -205,7 +205,7 @@ namespace LyncMeetingTranscriptBotApplication
         {
             Console.WriteLine("SaveTranscript - Entry");
 
-            string filename = "LyncMeetingTranscript_" + DateTime.Now.ToShortDateString();
+            string filename = "LyncMeetingTranscript.txt";
             using (FileStream fs = new FileStream(filename, FileMode.OpenOrCreate))
             {
                 using (BinaryWriter w = new BinaryWriter(fs))
@@ -222,7 +222,7 @@ namespace LyncMeetingTranscriptBotApplication
         {
             Console.WriteLine("SaveTranscripts - Entry");
             
-            string filename = "LyncMeetingTranscript_" + DateTime.Now.ToShortDateString();
+            string filename = "LyncMeetingTranscript.txt";
             using (FileStream fs = new FileStream(filename, FileMode.OpenOrCreate))
             {
                 using (BinaryWriter w = new BinaryWriter(fs))

@@ -81,8 +81,25 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             // Create speech recognition engine and start recognizing by attaching connector to engine
             try
             {
-                //_speechRecognitionEngine = new SpeechRecognitionEngine(SpeechRecognitionEngine.InstalledRecognizers()[0]);
-                _speechRecognitionEngine = new Microsoft.Speech.Recognition.SpeechRecognitionEngine(new System.Globalization.CultureInfo(_currentSRLocale));
+                _speechRecognitionEngine = new Microsoft.Speech.Recognition.SpeechRecognitionEngine();
+
+                /*
+                System.Globalization.CultureInfo localeCultureInfo = new System.Globalization.CultureInfo(_currentSRLocale);
+                foreach (RecognizerInfo r in Microsoft.Speech.Recognition.SpeechRecognitionEngine.InstalledRecognizers())
+                {
+                    if (r.Culture.Equals(localeCultureInfo))
+                    {
+                        _speechRecognitionEngine = new Microsoft.Speech.Recognition.SpeechRecognitionEngine(r);
+                        break;
+                    }
+                }
+                if (_speechRecognitionEngine == null)
+                {
+                    _speechRecognitionEngine = new SpeechRecognitionEngine();
+                }
+                 */ 
+
+                //_speechRecognitionEngine = new Microsoft.Speech.Recognition.SpeechRecognitionEngine(new System.Globalization.CultureInfo(_currentSRLocale));
             }
             catch (Exception e)
             {
@@ -90,7 +107,8 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
                 // Use default locale
                 Console.WriteLine("Falling back to default locale for SpeechRecognitionEngine: " + DefaultLocale);
                 _currentSRLocale = DefaultLocale;
-                _speechRecognitionEngine = new Microsoft.Speech.Recognition.SpeechRecognitionEngine(new System.Globalization.CultureInfo(_currentSRLocale));
+                _speechRecognitionEngine = new SpeechRecognitionEngine();
+                //_speechRecognitionEngine = new Microsoft.Speech.Recognition.SpeechRecognitionEngine(new System.Globalization.CultureInfo(_currentSRLocale));
             }
 
             _speechRecognitionEngine.SpeechDetected += new EventHandler<Microsoft.Speech.Recognition.SpeechDetectedEventArgs>(SpeechRecognitionEngine_SpeechDetected);
@@ -103,9 +121,10 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             // Might already be done via compiling with Recognition Settings File?
 
             // Add default locale language grammar file (if it exists)
-            String localLanguageGrammarFilePath = Path.Combine(Environment.CurrentDirectory, @".\en-US.cfgpp");
+            String localLanguageGrammarFilePath = Path.Combine(Environment.CurrentDirectory, @"Resources\en-US.grxml");
             if (File.Exists(localLanguageGrammarFilePath))
             {
+                System.Console.WriteLine("SpeechRecognizer(). Adding locale language file at path: " + localLanguageGrammarFilePath);
                 GrammarBuilder builder = new GrammarBuilder();
                 builder.AppendRuleReference(localLanguageGrammarFilePath);
                 Grammar localLanguageGrammar = new Grammar(builder);

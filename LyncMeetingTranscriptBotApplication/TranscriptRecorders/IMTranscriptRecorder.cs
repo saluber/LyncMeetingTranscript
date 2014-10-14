@@ -250,7 +250,7 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
                     MessageType.InstantMessage, _transcriptRecorder.Conversation.Id, MessageDirection.Incoming);
                 _transcriptRecorder.OnMessageReceived(m);
 
-                _transcriptRecorder.OnRemoteParticipantAdded(imCall.RemoteEndpoint);
+                _transcriptRecorder.OnRemoteParticipantAdded(null, imCall.RemoteEndpoint);
             }
             catch (RealTimeException ex)
             {
@@ -410,7 +410,7 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
                     MessageType.InstantMessage, _transcriptRecorder.Conversation.Id, MessageDirection.Incoming);
                 _transcriptRecorder.OnMessageReceived(m);
 
-                _transcriptRecorder.OnRemoteParticipantAdded(instantMessagingCall.RemoteEndpoint);
+                _transcriptRecorder.OnRemoteParticipantAdded(null, instantMessagingCall.RemoteEndpoint);
             }
             catch (RealTimeException exception)
             {
@@ -438,8 +438,8 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
                 instantMessagingCall.EndTerminate(ar);
 
                 // Remove this event handler now that the call has been terminated.
-                _instantMessagingCall.StateChanged -= InstantMessagingCall_StateChanged;
-                _instantMessagingCall.InstantMessagingFlowConfigurationRequested -= this.InstantMessagingCall_FlowConfigurationRequested;
+                instantMessagingCall.StateChanged -= InstantMessagingCall_StateChanged;
+                instantMessagingCall.InstantMessagingFlowConfigurationRequested -= this.InstantMessagingCall_FlowConfigurationRequested;
 
             }
             catch (Exception e)

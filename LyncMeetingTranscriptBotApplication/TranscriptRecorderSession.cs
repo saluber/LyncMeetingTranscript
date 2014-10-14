@@ -109,8 +109,8 @@ namespace LyncMeetingTranscriptBotApplication
         private Conversation _conversation;
         private ConversationTranscriptRecorder _conversationTranscriptRecorder;
 
-        private ParticipantEndpoint _remoteEndpoint;
-        private ConversationContextChannel _convContextChannel;
+        private ParticipantEndpoint _remoteEndpoint, _localEndpoint;
+        private ConversationContextChannel _convContextChannel, _localConvContextChannel;
 
         // TODO: wtf is this data structure choice? fix it.
         private List<MediaTranscriptRecorder> _transcriptRecorders;
@@ -415,11 +415,15 @@ namespace LyncMeetingTranscriptBotApplication
             Console.WriteLine("Message logged: " + m.ToString());
 
             _messages.Add(m);
-
+            if (_localConvContextChannel != null)
+            {
+                ContentType contentType = new ContentType();
+                _localConvContextChannel.BeginSendData(contentType, Constants.GetBytes(MessageToContextualData(m)), this.BeginContextSendDataCB, _localConvContextChannel);
+            }
             if (_convContextChannel != null)
             {
                 ContentType contentType = new ContentType();
-                _convContextChannel.BeginSendData(contentType, Constants.GetBytes(MessageToContextualData(m)), this.BeginContextSendDataCB, null);
+                _convContextChannel.BeginSendData(contentType, Constants.GetBytes(MessageToContextualData(m)), this.BeginContextSendDataCB, _convContextChannel);
             }
         }
 
@@ -542,8 +546,12 @@ namespace LyncMeetingTranscriptBotApplication
             }
         }
 
-        internal void OnRemoteParticipantAdded(ParticipantEndpoint clientEndpoint)
+        internal void OnRemoteParticipantAdded(ParticipantEndpoint localEndpoint, ParticipantEndpoint clientEndpoint)
         {
+            if (_localEndpoint == null)
+            {
+                _localEndpoint = localEndpoint;
+            }
             if (_remoteEndpoint == null)
             {
                 _remoteEndpoint = clientEndpoint;
@@ -553,13 +561,23 @@ namespace LyncMeetingTranscriptBotApplication
 
         private void InitConversationContext()
         {
-            if (_convContextChannel != null)
+            if (_localConvContextChannel != null && _localEndpoint != null)
+            {
+                _localConvContextChannel = new ConversationContextChannel(_conversation, _remoteEndpoint);
+                ConversationContextChannelEstablishOptions options = new ConversationContextChannelEstablishOptions();
+                options.ApplicationName = _appName;
+                options.RemoteConversationId = _conversation.Id;
+                options.ContextualData = GetTranscriptMessageContextualData();
+                _localConvContextChannel.BeginEstablish(_appId, options, BeginContextEstablishCB, _localConvContextChannel);
+            }
+            if (_convContextChannel != null && _remoteEndpoint != null)
             {
                 _convContextChannel = new ConversationContextChannel(_conversation, _remoteEndpoint);
                 ConversationContextChannelEstablishOptions options = new ConversationContextChannelEstablishOptions();
-
+                options.ApplicationName = _appName;
+                options.RemoteConversationId = _conversation.Id;
                 options.ContextualData = GetTranscriptMessageContextualData();
-                _convContextChannel.BeginEstablish(_appId, options, BeginContextEstablishCB, null);
+                _convContextChannel.BeginEstablish(_appId, options, BeginContextEstablishCB, _convContextChannel);
             }
         }
 
@@ -581,9 +599,13 @@ namespace LyncMeetingTranscriptBotApplication
 
         private void ShutdownConversationContext()
         {
+            if (_localConvContextChannel != null)
+            {
+                _localConvContextChannel.BeginTerminate(BeginContextTerminateCB, _localConvContextChannel);
+            }
             if (_convContextChannel != null)
             {
-                _convContextChannel.BeginTerminate(BeginContextTerminateCB, null);
+                _convContextChannel.BeginTerminate(BeginContextTerminateCB, _convContextChannel);
             }
         }
 
@@ -592,9 +614,10 @@ namespace LyncMeetingTranscriptBotApplication
         // Callback for BeginContextSendData on the context channel.
         void BeginContextSendDataCB(IAsyncResult res)
         {
+            ConversationContextChannel channel = res as ConversationContextChannel;
             try
             {
-                _convContextChannel.EndSendData(res);
+                channel.EndSendData(res);
             }
             catch (Exception e)
             {
@@ -605,12 +628,13 @@ namespace LyncMeetingTranscriptBotApplication
         // Callback for BeginContextTerminate on the context channel.
         void BeginContextTerminateCB(IAsyncResult res)
         {
+            ConversationContextChannel channel = res as ConversationContextChannel;
             try
             {
-                if (_convContextChannel.State == ConversationContextChannelState.Terminating)
+                if (channel.State == ConversationContextChannelState.Terminating)
                 {
                     Console.WriteLine("Context channel is in the Terminating state");
-                    _convContextChannel.EndTerminate(res);
+                    channel.EndTerminate(res);
                 }
             }
             catch (Exception e)
@@ -622,12 +646,13 @@ namespace LyncMeetingTranscriptBotApplication
         // Callback for BeginContextEstablish on the context channel.
         void BeginContextEstablishCB(IAsyncResult res)
         {
+            ConversationContextChannel channel = res as ConversationContextChannel;
             try
             {
-                if (_convContextChannel.State == ConversationContextChannelState.Establishing)
+                if (channel.State == ConversationContextChannelState.Establishing)
                 {
                     Console.WriteLine("Context channel is in the Establishing state");
-                    _convContextChannel.EndEstablish(res);
+                    channel.EndEstablish(res);
                 }
             }
             catch (Exception e)

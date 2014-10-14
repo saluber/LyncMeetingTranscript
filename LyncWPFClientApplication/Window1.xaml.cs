@@ -29,7 +29,7 @@ namespace LyncWPFClientApplication
         private MainViewModel _viewModel;
         private LyncClient _lyncClient;
         private Conversation _conversation;
-        private ApplicationRegistration _myApplicationRegistration;
+        //private ApplicationRegistration _myApplicationRegistration;
 
         public Window1()
         {
@@ -44,6 +44,7 @@ namespace LyncWPFClientApplication
                 // Get the instance of LyncClient and subscribe to outgoing/incoming conversation events
                 _lyncClient = LyncClient.GetClient();
                 _lyncClient.StateChanged += new EventHandler<ClientStateChangedEventArgs>(LyncClient_StateChanged);
+
                 _lyncClient.ConversationManager.ConversationAdded += ConversationManager_ConversationAdded;
                 _lyncClient.DelegatorClientAdded += _lyncClient_DelegatorClientAdded;
                 _lyncClient.DelegatorClientRemoved += _lyncClient_DelegatorClientRemoved;
@@ -74,7 +75,10 @@ namespace LyncWPFClientApplication
                 else
                 {
                     // throw new InvalidOperationException("There must be at least one active Lync Conversation instance running to record a meeting transcript");
-                }                
+                }
+
+                Conversation conversation = _lyncClient.ConversationManager.AddConversation();
+                conversation.AddParticipant(_lyncClient.Self.Contact);
             }
             catch (ClientNotFoundException) { Console.WriteLine("Lync client was not found on startup"); }
             catch (LyncClientException lce) { MessageBox.Show("Lyncclientexception: " + lce.Message); }

@@ -231,7 +231,7 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
 
             Console.WriteLine();
 
-            Message m = new Message("Conversation Participant Properties changed. Properties changed: " + e.ChangedPropertyNames.ToString()
+            Message m = new Message("Conversation Participant Properties changed. Properties changed: " + e.ChangedPropertyNames.ToArray<String>().ToString()
                 + ". Participant Property Values: " + e.Properties.ToString() + ".",
                 e.Participant.DisplayName, e.Participant.UserAtHost, e.Participant.Uri,
                 MessageType.ConversationInfo, conv.Id, MessageDirection.Incoming);

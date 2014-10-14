@@ -19,8 +19,8 @@ Install instructions:
 HKEY_CURRENT_USER\Software\Microsoft\Communicator\ContextPackages
 HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\Communicator\ContextPackages
 
+Example:
 [HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Microsoft\Communicator\ContextPackages\{5c25bcb7-4df6-4746-8b71-740ed37ab47f}]
-"InternalURL"="Window1.xaml"
 "Name"="Lync Meeting Transcript"
 
 Troubleshooting Resources:
@@ -29,7 +29,8 @@ Troubleshooting Resources:
 ================================================
 How to use the application:
 ================================================
-1. 
+1. Run LyncMeetingTranscriptBotApplication.exe
+2. Call app endpoint URI specified in App.config
 
 ================================================
 Questions/feedback?

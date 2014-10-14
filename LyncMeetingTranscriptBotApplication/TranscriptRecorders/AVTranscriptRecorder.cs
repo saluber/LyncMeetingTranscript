@@ -268,7 +268,7 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
                     MessageType.Audio, _transcriptRecorder.Conversation.Id, MessageDirection.Incoming);
                 _transcriptRecorder.OnMessageReceived(m);
 
-                _transcriptRecorder.OnRemoteParticipantAdded(avCall.RemoteEndpoint);
+                _transcriptRecorder.OnRemoteParticipantAdded(null, avCall.RemoteEndpoint);
             }
             catch (RealTimeException ex)
             {
@@ -421,7 +421,7 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
                     MessageType.Audio, _transcriptRecorder.Conversation.Id, MessageDirection.Outgoing);
                 _transcriptRecorder.OnMessageReceived(m);
 
-                _transcriptRecorder.OnRemoteParticipantAdded(call.RemoteEndpoint);
+                _transcriptRecorder.OnRemoteParticipantAdded(null, call.RemoteEndpoint);
             }
             catch (RealTimeException exception)
             {
@@ -446,6 +446,8 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             {
                 // End terminating the incoming call.
                 audioVideoCall.EndTerminate(ar);
+                // audioVideoCall.AudioVideoFlowConfigurationRequested -= this.AudioVideoCall_FlowConfigurationRequested;
+                // audioVideoCall.StateChanged -= this.AudioVideoCall_StateChanged;
             }
             catch (Exception e)
             {
