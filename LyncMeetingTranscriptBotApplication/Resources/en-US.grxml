@@ -186,11 +186,11 @@ inferred.
 <!-- Category: All -->
 <rule id="AllCategories" scope="public">
   <example> yes no cancel </example>
-  <item repeat ="1-15">
+  <item repeat ="1-5">
     <item repeat="0-1">
       <ruleref special="GARBAGE"/>
     </item>
-    <item repeat="1-">
+    <item repeat="1-5">
       <one-of>
         <item>
           <ruleref uri="#Confirmation" />

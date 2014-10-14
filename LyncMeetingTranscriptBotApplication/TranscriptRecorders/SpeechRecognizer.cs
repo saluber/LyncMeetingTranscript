@@ -119,24 +119,23 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             // Might already be done via compiling with Recognition Settings File?
 
             // Add default locale language grammar file (if it exists)
-            /*
             String localLanguageGrammarFilePath = Path.Combine(Environment.CurrentDirectory, @"en-US.cfgpp");
             if (File.Exists(localLanguageGrammarFilePath))
             {
                 System.Console.WriteLine("SpeechRecognizer(). Adding locale language file at path: " + localLanguageGrammarFilePath);
                 GrammarBuilder builder = new GrammarBuilder();
                 builder.AppendRuleReference(localLanguageGrammarFilePath);
-                Grammar localLanguageGrammar = new Grammar(builder);
-                localLanguageGrammar.Name = "Local language grammar";
-                localLanguageGrammar.Priority = 1;
-                _grammars.Add(localLanguageGrammar);
+                Grammar localeLanguageGrammar = new Grammar(builder);
+                localeLanguageGrammar.Name = "Local language grammar";
+                //localeLanguageGrammar.Priority = 1;
+                _grammars.Add(localeLanguageGrammar);
             }
-            */
+            
             string[] recognizedString = { "hello", "bye", "yes", "no", "help", "zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "exit" };
             Choices numberChoices = new Choices(recognizedString);
             Grammar basicGrammar = new Grammar(new GrammarBuilder(numberChoices));
             basicGrammar.Name = "Basic Grammar";
-            basicGrammar.Priority = 2;
+            //basicGrammar.Priority = 2;
             _grammars.Add(basicGrammar);
 
             LoadSpeechGrammarAsync();

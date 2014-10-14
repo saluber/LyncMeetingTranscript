@@ -1,22 +1,18 @@
 ------------------------------------------------------------------
-Lync Meeting Transcript
-By: Samantha Luber (samil AT microsoft.com)
-Project site: https://github.com/saluber/LyncMeetingTranscript
 Application Name: Lync Meeting Transcript
 Application ID: 5c25bcb7-4df6-4746-8b71-740ed37ab47f
+Author: Samantha Luber (samil AT microsoft.com)
+Project site: https://github.com/saluber/LyncMeetingTranscript
 ------------------------------------------------------------------
 Overview:
-Lync is a great tool for communication and collaboration across various business units. It offers a wide variety of capabilities including conferencing.
+"Real-time transcripts of Lync meetings"
 
-Lync conferences allows users to have application sharing, IM chats and video sharing during the meeting. But do you know whether a visually impaired person be able to see the instant messages that is coming across the meeting? Or will a hearing impaired person be able to hear what is discussed in the meetings - Would it be nice if you provide a script of instant messages that can be narrated to a blind person using his familiar screen reading software or provide a script of audio conversations that is happening during the meeting to a hearing impaired person which he can read?
-
+Lync is a great tool for communication and collaboration across various business units. 
+It offers a wide variety of capabilities including conferencing. Lync conferences allows users to have application sharing, 
+IM chats and video sharing during the meeting. But do you know whether a visually impaired person be able to see the instant messages 
+that is coming across the meeting? Or will a hearing impaired person be able to hear what is discussed in the meetings? 
+Or would it simply be nice to have a live-generated transcript of a current or past meeting to review what was discussed? 
 Lync Meeting Transcript is created with the aim of helping Lync users to the generates real-time transcripts of Lync meetings.
-
-Recording is a key capability that Lync conferencing currently supports. It help users to know what was discussed in the past meeting, which enables them to have better decision making, conflict resolution, improved training or liability management. There are various industries which could benefit from having this feature.
-
-Lync recording need to be manually started/stopped for the meeting that the user wishes to record and it will produce a single file of the meeting recording, forcing the user to play through the entire meeting recording in order to review what was covered. Take the scenario of of cross team meeting. For some reason, you missed the meeting. You are interested to know what is discussed about your team and project. 
-
-Lync Meeting Transcript will help you to search through the test and get you to the exact point where your team details are discussed.
 ------------------------------------------------------------------
 Setup:
 Client Application:
@@ -26,8 +22,8 @@ Server Application:
 Register server application: http://stackoverflow.com/questions/25075372/ucma-steps-to-create-trusted-application
 
 The following table describes the two registry entries. Add the context application GUID ({5c25bcb7-4df6-4746-8b71-740ed37ab47f}) as a key under either of these two paths:
-HKEY_CURRENT_USER\Software\Microsoft\Communicator\ContextPackages
-HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\Communicator\ContextPackages
+HKEY_CURRENT_USER\Software\Microsoft\Communicator\ContextPackages (CurrentUserLyncMeetingTranscriptAppRegistrationKey.reg)
+HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\Communicator\ContextPackages (LocalMachineLyncMeetingTranscriptAppRegistrationKey.reg)
 
 Example:
 [HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Microsoft\Communicator\ContextPackages\{5c25bcb7-4df6-4746-8b71-740ed37ab47f}]
