@@ -82,7 +82,8 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             // Create speech recognition engine and start recognizing by attaching connector to engine
             try
             {
-                //_speechRecognitionEngine = new Microsoft.Speech.Recognition.SpeechRecognitionEngine();
+                _speechRecognitionEngine = new Microsoft.Speech.Recognition.SpeechRecognitionEngine();
+                /*
                 System.Globalization.CultureInfo localeCultureInfo = new System.Globalization.CultureInfo(_currentSRLocale);
                 foreach (RecognizerInfo r in Microsoft.Speech.Recognition.SpeechRecognitionEngine.InstalledRecognizers())
                 {
@@ -96,7 +97,7 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
                 {
                     _speechRecognitionEngine = new SpeechRecognitionEngine();
                 }
-
+                */
                 //_speechRecognitionEngine = new Microsoft.Speech.Recognition.SpeechRecognitionEngine(new System.Globalization.CultureInfo(_currentSRLocale));
             }
             catch (Exception e)

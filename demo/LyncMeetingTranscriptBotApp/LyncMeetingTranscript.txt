@@ -1,170 +1,168 @@
-á4Timestamp: 10/14/2014 9:24:36 AM
-Conversation Id: 2bf8922da04c48acbdbdca2eec66c21a
+¿5Timestamp: 10/14/2014 3:12:36 PM
+Conversation Id: 5d1b2557e8404eda882b35a184d6031b
 Direction: Outgoing
 Message Type: ConferenceInfo
-Message Content: AudioVideo Conversation/Conference Started.
+Message Content: InstantMessaging Conversation/Conference Started.
 -----------------------------------------------
 
-Timestamp: 10/14/2014 9:24:37 AM
-Conversation Id: 2bf8922da04c48acbdbdca2eec66c21a
+Timestamp: 10/14/2014 3:12:36 PM
+Conversation Id: 5d1b2557e8404eda882b35a184d6031b
 Direction: Outgoing
 Message Type: ConversationInfo
-Message Content: AudioVideo Conversation Participant Added.
+Message Content: InstantMessaging Conversation Participant Added.
 -----------------------------------------------
 
-Timestamp: 10/14/2014 9:24:37 AM
-Conversation Id: 2bf8922da04c48acbdbdca2eec66c21a
+Timestamp: 10/14/2014 3:12:36 PM
+Conversation Id: 5d1b2557e8404eda882b35a184d6031b
 Direction: Incoming
-Message Type: Audio
-Message Content: AudioVideoCall Received. Inbound call state: Incoming
+Message Type: InstantMessage
+Message Content: InstantMessagingCall Received. Inbound call state: Incoming
 -----------------------------------------------
 
-Timestamp: 10/14/2014 9:24:37 AM
-Conversation Id: 2bf8922da04c48acbdbdca2eec66c21a
+Timestamp: 10/14/2014 3:12:36 PM
+Conversation Id: 5d1b2557e8404eda882b35a184d6031b
 Direction: Outgoing
-Message Type: Audio
-Message Content: The AudioVideo call with Local Participant: sip:samil@microsoft.com and Remote Participant: tel:4143050791;phone-context=enterprise has changed state. The previous call state was: Incoming and the current state is: Establishing
+Message Type: InstantMessage
+Message Content: The InstantMessaging call with Local Participant: sip:samil@microsoft.com and Remote Participant: sip:samantha.luber@outlook.com has changed state. The previous call state was: Incoming and the current state is: Establishing
 -----------------------------------------------
 
-Timestamp: 10/14/2014 9:24:37 AM
-Conversation Id: 2bf8922da04c48acbdbdca2eec66c21a
+Timestamp: 10/14/2014 3:12:36 PM
+Conversation Id: 5d1b2557e8404eda882b35a184d6031b
 Direction: Outgoing
 Message Type: ConversationInfo
 Message Content: Conversation state changed from Incoming to Establishing
 -----------------------------------------------
 
-Timestamp: 10/14/2014 9:24:37 AM
-Conversation Id: 2bf8922da04c48acbdbdca2eec66c21a
+Timestamp: 10/14/2014 3:12:36 PM
+Conversation Id: 5d1b2557e8404eda882b35a184d6031b
 Direction: Outgoing
-Message Type: Audio
-Message Content: AV Flow Configuration Requested.
+Message Type: InstantMessage
+Message Content: IM Flow Configuration Requested.
 -----------------------------------------------
 
-Timestamp: 10/14/2014 9:24:39 AM
-Conversation Id: 2bf8922da04c48acbdbdca2eec66c21a
+Timestamp: 10/14/2014 3:12:37 PM
+Conversation Id: 5d1b2557e8404eda882b35a184d6031b
+Direction: Outgoing
+Message Type: InstantMessage
+Message Content: InstantMessagingFlow changed from Idle to Active.
+-----------------------------------------------
+
+Timestamp: 10/14/2014 3:12:37 PM
+Conversation Id: 5d1b2557e8404eda882b35a184d6031b
 Direction: Incoming
 Message Type: ConversationInfo
 Message Content: Conversation Participant Properties changed. Properties changed: System.String[]. Participant Property Values: Microsoft.Rtc.Collaboration.ConversationParticipantProperties.
 -----------------------------------------------
 
-Timestamp: 10/14/2014 9:24:39 AM
-Conversation Id: 2bf8922da04c48acbdbdca2eec66c21a
+Timestamp: 10/14/2014 3:12:37 PM
+Conversation Id: 5d1b2557e8404eda882b35a184d6031b
 Direction: Outgoing
-Message Type: Audio
-Message Content: The AudioVideo call with Local Participant: sip:samil@microsoft.com and Remote Participant: tel:4143050791;phone-context=enterprise has changed state. The previous call state was: Establishing and the current state is: Established
+Message Type: InstantMessage
+Message Content: The InstantMessaging call with Local Participant: sip:samil@microsoft.com and Remote Participant: sip:samantha.luber@outlook.com has changed state. The previous call state was: Establishing and the current state is: Established
 -----------------------------------------------
 
-Timestamp: 10/14/2014 9:24:39 AM
-Conversation Id: 2bf8922da04c48acbdbdca2eec66c21a
+Timestamp: 10/14/2014 3:12:37 PM
+Conversation Id: 5d1b2557e8404eda882b35a184d6031b
+Direction: Incoming
+Message Type: InstantMessage
+Message Content: InstantMessagingCall Accepted. Call state: Established. CallId: b2ec267a95e2@mm.
+-----------------------------------------------
+
+Timestamp: 10/14/2014 3:12:37 PM
+Conversation Id: 5d1b2557e8404eda882b35a184d6031b
 Direction: Outgoing
 Message Type: ConversationInfo
 Message Content: Conversation state changed from Establishing to Established
 -----------------------------------------------
 
-Timestamp: 10/14/2014 9:24:39 AM
-Conversation Id: 2bf8922da04c48acbdbdca2eec66c21a
-Direction: Outgoing
-Message Type: Audio
-Message Content: AudioVideoCall Accepted. Call state: Established
+Timestamp: 10/14/2014 3:12:37 PM
+Conversation Id: 5d1b2557e8404eda882b35a184d6031b
+Direction: Incoming
+Message Type: InstantMessage
+Message Content: Plur
 -----------------------------------------------
 
-Timestamp: 10/14/2014 9:24:39 AM
-Conversation Id: 2bf8922da04c48acbdbdca2eec66c21a
-Direction: Outgoing
-Message Type: Audio
-Message Content: AudioVideoFlow changed from Idle to Active.
+Timestamp: 10/14/2014 3:12:54 PM
+Conversation Id: 5d1b2557e8404eda882b35a184d6031b
+Direction: Incoming
+Message Type: InstantMessage
+Message Content: 16040 NE 36th Way, Redmond, WA 98052
 -----------------------------------------------
 
-Timestamp: 10/14/2014 9:24:42 AM
-Conversation Id: 2bf8922da04c48acbdbdca2eec66c21a
-Direction: Outgoing
-Message Type: Info
-Message Content: SpeechRecognitionEngine has detected speech.
+Timestamp: 10/14/2014 3:13:21 PM
+Conversation Id: 5d1b2557e8404eda882b35a184d6031b
+Direction: Incoming
+Message Type: InstantMessage
+Message Content: Aaaa
 -----------------------------------------------
 
-Timestamp: 10/14/2014 9:24:54 AM
-Conversation Id: 2bf8922da04c48acbdbdca2eec66c21a
+Timestamp: 10/14/2014 3:18:22 PM
+Conversation Id: 5d1b2557e8404eda882b35a184d6031b
 Direction: Outgoing
-Message Type: Info
-Message Content: SpeechRecognitionEngine has detected speech.
+Message Type: InstantMessage
+Message Content: The InstantMessaging call with Local Participant: sip:samil@microsoft.com and Remote Participant: sip:samantha.luber@outlook.com has changed state. The previous call state was: Established and the current state is: Terminating
 -----------------------------------------------
 
-Timestamp: 10/14/2014 9:25:41 AM
-Conversation Id: 2bf8922da04c48acbdbdca2eec66c21a
-Direction: Outgoing
-Message Type: Audio
-Message Content: The AudioVideo call with Local Participant: sip:samil@microsoft.com and Remote Participant: tel:4143050791;phone-context=enterprise has changed state. The previous call state was: Established and the current state is: Terminating
------------------------------------------------
-
-Timestamp: 10/14/2014 9:25:41 AM
-Conversation Id: 2bf8922da04c48acbdbdca2eec66c21a
-Direction: Outgoing
-Message Type: Audio
-Message Content: eight
------------------------------------------------
-
-Timestamp: 10/14/2014 9:25:41 AM
+Timestamp: 10/14/2014 3:18:22 PM
 Conversation Id: 00000000-0000-0000-0000-000000000000
 Direction: Outgoing
 Message Type: Info
-Message Content: MediaTranscriptRecorder shutdown for MediaType: AudioVideo
+Message Content: MediaTranscriptRecorder shutdown for MediaType: InstantMessage
 -----------------------------------------------
 
-Timestamp: 10/14/2014 9:25:41 AM
-Conversation Id: 2bf8922da04c48acbdbdca2eec66c21a
+Timestamp: 10/14/2014 3:18:22 PM
+Conversation Id: 5d1b2557e8404eda882b35a184d6031b
 Direction: Incoming
 Message Type: ConversationInfo
 Message Content: Conversation Participant Properties changed. Properties changed: System.String[]. Participant Property Values: Microsoft.Rtc.Collaboration.ConversationParticipantProperties.
 -----------------------------------------------
 
-Timestamp: 10/14/2014 9:25:41 AM
-Conversation Id: 2bf8922da04c48acbdbdca2eec66c21a
+Timestamp: 10/14/2014 3:18:22 PM
+Conversation Id: 5d1b2557e8404eda882b35a184d6031b
 Direction: Incoming
 Message Type: ConversationInfo
 Message Content: Participant left conversation.
 -----------------------------------------------
 
-Timestamp: 10/14/2014 9:25:41 AM
-Conversation Id: 2bf8922da04c48acbdbdca2eec66c21a
+Timestamp: 10/14/2014 3:18:22 PM
+Conversation Id: 5d1b2557e8404eda882b35a184d6031b
 Direction: Outgoing
 Message Type: ConversationInfo
 Message Content: Conversation Properties changed. Properties changed: System.Collections.ObjectModel.Collection`1[System.String]. Participant Property Values: Microsoft.Rtc.Collaboration.ConversationProperties.
 -----------------------------------------------
 
-Timestamp: 10/14/2014 9:25:41 AM
-Conversation Id: 2bf8922da04c48acbdbdca2eec66c21a
+Timestamp: 10/14/2014 3:18:22 PM
+Conversation Id: 5d1b2557e8404eda882b35a184d6031b
 Direction: Outgoing
 Message Type: ConversationInfo
 Message Content: Conversation state changed from Established to Terminating
 -----------------------------------------------
 
-Timestamp: 10/14/2014 9:25:41 AM
+Timestamp: 10/14/2014 3:18:22 PM
 Conversation Id: 00000000-0000-0000-0000-000000000000
 Direction: Outgoing
 Message Type: Info
 Message Content: MediaTranscriptRecorder shutdown for MediaType: Conversation
 -----------------------------------------------
 
-Timestamp: 10/14/2014 9:25:41 AM
+Timestamp: 10/14/2014 3:18:22 PM
 Conversation Id: 00000000-0000-0000-0000-000000000000
 Direction: Outgoing
 Message Type: Info
 Message Content: TranscriptRecorderSession is shutting down. SessionId: 
 -----------------------------------------------
 
-Timestamp: 10/14/2014 9:25:41 AM
-Conversation Id: 2bf8922da04c48acbdbdca2eec66c21a
+Timestamp: 10/14/2014 3:18:22 PM
+Conversation Id: 5d1b2557e8404eda882b35a184d6031b
 Direction: Outgoing
 Message Type: ConversationInfo
 Message Content: Conversation shutting down.
 -----------------------------------------------
 
-Timestamp: 10/14/2014 9:25:41 AM
-Conversation Id: 2bf8922da04c48acbdbdca2eec66c21a
+Timestamp: 10/14/2014 3:18:22 PM
+Conversation Id: 5d1b2557e8404eda882b35a184d6031b
 Direction: Outgoing
 Message Type: Info
 Message Content: Raising TranscriptRecorderSessionShutdown event. SessionId: 00000000-0000-0000-0000-000000000000.
 -----------------------------------------------
-
-------------------------------
 

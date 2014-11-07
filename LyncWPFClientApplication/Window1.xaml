@@ -57,7 +57,7 @@
             -->
       <controls:PresenceIndicator
           x:Name="Presence"
-          Source="sip:john@contoso.com"
+          Source="sip:samil@microsoft.com"
           PhotoDisplayMode="Large"
                 />
       <!-- Use the DisplayName property from PresenceIndicator to show the user's name -->
