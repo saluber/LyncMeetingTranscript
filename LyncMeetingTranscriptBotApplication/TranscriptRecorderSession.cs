@@ -1,13 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Net.Mime;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+
 using Microsoft.Rtc.Collaboration;
 using Microsoft.Rtc.Collaboration.AudioVideo;
-using Microsoft.Rtc.Signaling;
 
 using LyncMeetingTranscriptBotApplication.TranscriptRecorders;
 
@@ -88,9 +86,11 @@ namespace LyncMeetingTranscriptBotApplication
     public class TranscriptRecorderSession
     {
         #region Events
+
         public event EventHandler<TranscriptRecorderSessionShutdownEventArgs> TranscriptRecorderSessionShutdown;
 
         public event EventHandler<TranscriptRecorderSessionChangedEventArgs> TranscriptRecorderSessionChanged;
+        
         #endregion // Events
 
         #region Fields
@@ -112,9 +112,10 @@ namespace LyncMeetingTranscriptBotApplication
         private ParticipantEndpoint _remoteEndpoint, _localEndpoint;
         private ConversationContextChannel _convContextChannel, _localConvContextChannel;
 
-        // TODO: wtf is this data structure choice? fix it.
+        // TODO: Bandaids don't fix poor architecture design choices. Refactor to more reasonable data structure choice.
         private List<MediaTranscriptRecorder> _transcriptRecorders;
         private Dictionary<ConversationTranscriptRecorder, List<MediaTranscriptRecorder>> _conversationToCallTranscriptMapping;
+
         private List<Message> _messages;
 
         private AutoResetEvent _waitForConversationTerminated = new AutoResetEvent(false);
@@ -160,7 +161,7 @@ namespace LyncMeetingTranscriptBotApplication
 
         #region Consturctors
 
-        public TranscriptRecorderSession(ConferenceInvitationReceivedEventArgs e)
+        public TranscriptRecorderSession(ConferenceInvitationReceivedEventArgs e, CancellationTokenSource cts = null)
         {
             _sessionId = new Guid();
             _transcriptRecorders = new List<MediaTranscriptRecorder>();
@@ -178,7 +179,7 @@ namespace LyncMeetingTranscriptBotApplication
             AddIncomingInvitedConference(e);
         }
 
-        public TranscriptRecorderSession(CallReceivedEventArgs<AudioVideoCall> e)
+        public TranscriptRecorderSession(CallReceivedEventArgs<AudioVideoCall> e, CancellationTokenSource cts = null)
         {
             _sessionId = new Guid();
             _transcriptRecorders = new List<MediaTranscriptRecorder>();
@@ -189,9 +190,9 @@ namespace LyncMeetingTranscriptBotApplication
             _conversationTranscriptRecorder = new ConversationTranscriptRecorder(this, _conversation);
             _transcriptRecorders.Add(_conversationTranscriptRecorder);
             _conversationToCallTranscriptMapping.Add(_conversationTranscriptRecorder, new List<MediaTranscriptRecorder>());
-            ConversationParticipant caller = e.RemoteParticipant;
 
             // Log AV conversation started
+            ConversationParticipant caller = e.RemoteParticipant;
             Message m = new Message("AudioVideo Conversation/Conference Started.", caller.DisplayName, caller.UserAtHost, caller.Uri, DateTime.Now,
                 _conversation.Id, (_conversation.ConferenceSession == null)? "null" : _conversation.ConferenceSession.ConferenceUri,
                 MessageType.ConferenceInfo, MessageDirection.Outgoing);
@@ -200,7 +201,7 @@ namespace LyncMeetingTranscriptBotApplication
             AddAVIncomingCall(e);
         }
 
-        public TranscriptRecorderSession(CallReceivedEventArgs<InstantMessagingCall> e)
+        public TranscriptRecorderSession(CallReceivedEventArgs<InstantMessagingCall> e, CancellationTokenSource cts = null)
         {
             _sessionId = new Guid();
             _transcriptRecorders = new List<MediaTranscriptRecorder>();
@@ -226,11 +227,11 @@ namespace LyncMeetingTranscriptBotApplication
 
         #region Public Methods
 
-        public void AddIncomingInvitedConference(ConferenceInvitationReceivedEventArgs e)
+        public void AddIncomingInvitedConference(ConferenceInvitationReceivedEventArgs e, CancellationTokenSource cts = null)
         {
             if (_state != TranscriptRecorderState.Active)
             {
-                Console.WriteLine("Warn: AddIncomingInvitedConferece in unexpected TranscriptRecorderSession state: " + _state.ToString());
+                NonBlockingConsole.WriteLine("Warn: AddIncomingInvitedConferece in unexpected TranscriptRecorderSession state: " + _state.ToString());
             }
 
             // Log Conference Invitation Recv
@@ -244,11 +245,11 @@ namespace LyncMeetingTranscriptBotApplication
             e.Invitation.BeginAccept(ConferenceInvitation_AcceptCompleted, e.Invitation);
         }
 
-        public void AddAVIncomingCall(CallReceivedEventArgs<AudioVideoCall> e)
+        public void AddAVIncomingCall(CallReceivedEventArgs<AudioVideoCall> e, CancellationTokenSource cts = null)
         {
             if (_state != TranscriptRecorderState.Active)
             {
-                Console.WriteLine("Warn: AddAVIncomingCall in unexpected TranscriptRecorderSession state: " + _state.ToString());
+                NonBlockingConsole.WriteLine("Warn: AddAVIncomingCall in unexpected TranscriptRecorderSession state: " + _state.ToString());
             }
 
             AVTranscriptRecorder a = new AVTranscriptRecorder(this);
@@ -256,7 +257,7 @@ namespace LyncMeetingTranscriptBotApplication
 
             Message m = new Message("AudioVideo Conversation Participant Added.", caller.DisplayName,
                 caller.UserAtHost, caller.Uri, DateTime.Now,
-                _conversation.Id, _conversation.ConferenceSession.ConferenceUri,
+                _conversation.Id, (_conversation.ConferenceSession == null) ? "null" : _conversation.ConferenceSession.ConferenceUri,
                 MessageType.ConversationInfo, MessageDirection.Outgoing);
             this.OnMessageReceived(m);
 
@@ -266,11 +267,11 @@ namespace LyncMeetingTranscriptBotApplication
             a.AudioVideoCall_Received(e);
         }
 
-        public void AddIMIncomingCall(CallReceivedEventArgs<InstantMessagingCall> e)
+        public void AddIMIncomingCall(CallReceivedEventArgs<InstantMessagingCall> e, CancellationTokenSource cts = null)
         {
             if (_state != TranscriptRecorderState.Active)
             {
-                Console.WriteLine("Warn: AddIMIncomingCall in unexpected TranscriptRecorderSession state: " + _state.ToString());
+                NonBlockingConsole.WriteLine("Warn: AddIMIncomingCall in unexpected TranscriptRecorderSession state: " + _state.ToString());
             }
 
             IMTranscriptRecorder i = new IMTranscriptRecorder(this);
@@ -298,7 +299,7 @@ namespace LyncMeetingTranscriptBotApplication
 
             if (print)
             {
-                Console.WriteLine("Meeting Transcript:\n" + transcript);
+                NonBlockingConsole.WriteLine("Meeting Transcript:\n" + transcript);
             }
 
             return transcript;
@@ -351,7 +352,7 @@ namespace LyncMeetingTranscriptBotApplication
             }
             catch (Exception e)
             {
-                Console.WriteLine("TranscriptRecorderSession.Shutdown(). Exception occured during conversation shutdown: {0}",
+                NonBlockingConsole.WriteLine("TranscriptRecorderSession.Shutdown(). Exception occured during conversation shutdown: {0}",
                     e.ToString());
             }
             finally
@@ -365,8 +366,8 @@ namespace LyncMeetingTranscriptBotApplication
 
         internal void RaiseTranscriptRecorderSessionShutdown(TranscriptRecorderSessionShutdownEventArgs args)
         {
-            Console.WriteLine("Raising TranscriptRecorderSessionShutdown event. SessionId: {0}. ConversationId: {1}. ConferenceUri: {2}",
-                args.SessionId, (args.Conversation == null) ? "null" : args.Conversation.Id, 
+            NonBlockingConsole.WriteLine("Raising TranscriptRecorderSessionShutdown event. SessionId: {0}. ConversationId: {1}. ConferenceUri: {2}",
+                args.SessionId.ToString(), (args.Conversation == null) ? "null" : args.Conversation.Id, 
                 (args.Conference == null) ? "null" : args.Conference.ConferenceUri);
 
             Message m = new Message("Raising TranscriptRecorderSessionShutdown event. SessionId: " + _sessionId + ".",
@@ -384,15 +385,15 @@ namespace LyncMeetingTranscriptBotApplication
             }
             catch (Exception e)
             {
-                Console.WriteLine("Error: Exception occured in RaiseTranscriptRecorderSessionShutdown(): {0}.",
+                NonBlockingConsole.WriteLine("Error: Exception occured in RaiseTranscriptRecorderSessionShutdown(): {0}.",
                     e.ToString());
             }
         }
 
         internal void RaiseTranscriptRecorderSessionChanged(ConferenceSession conference)
         {
-            Console.WriteLine("Raising TranscriptRecorderSessionShutdown event. SessionId: {0}. ConferenceUri: {1}",
-                this.SessionId, (conference == null) ? "null" : conference.ConferenceUri);
+            NonBlockingConsole.WriteLine("Raising TranscriptRecorderSessionShutdown event. SessionId: {0}. ConferenceUri: {1}",
+                this.SessionId.ToString(), (conference == null) ? "null" : conference.ConferenceUri);
 
             try
             {
@@ -404,7 +405,7 @@ namespace LyncMeetingTranscriptBotApplication
             }
             catch (Exception e)
             {
-                Console.WriteLine("Error: Exception occured in TranscriptRecorderSessionChanged(). Conference: {0}. {1}.",
+                NonBlockingConsole.WriteLine("Error: Exception occured in TranscriptRecorderSessionChanged(). Conference: {0}. {1}.",
                     conference.ConferenceUri,
                     e.ToString());
             }
@@ -412,7 +413,7 @@ namespace LyncMeetingTranscriptBotApplication
 
         internal void OnMessageReceived(Message m, string appId = null)
         {
-            Console.WriteLine("Message logged: " + m.ToString());
+            NonBlockingConsole.WriteLine("Message logged: " + m.ToString());
 
             _messages.Add(m);
             if (_localConvContextChannel != null)
@@ -429,7 +430,7 @@ namespace LyncMeetingTranscriptBotApplication
 
         internal void OnMediaTranscriptRecorderError(Message m)
         {
-            Console.WriteLine("Error message loged: " + m.ToString());
+            NonBlockingConsole.WriteLine("Error message loged: " + m.ToString());
 
             _messages.Add(m);
 
@@ -555,7 +556,7 @@ namespace LyncMeetingTranscriptBotApplication
             if (_remoteEndpoint == null)
             {
                 _remoteEndpoint = clientEndpoint;
-                InitConversationContext();
+                //InitConversationContext();
             }
         }
 
@@ -621,7 +622,7 @@ namespace LyncMeetingTranscriptBotApplication
             }
             catch (Exception e)
             {
-                Console.WriteLine("Error: Context channel SendData failed with exception: " + e.ToString());
+                NonBlockingConsole.WriteLine("Error: Context channel SendData failed with exception: " + e.ToString());
             }
         }
 
@@ -633,13 +634,13 @@ namespace LyncMeetingTranscriptBotApplication
             {
                 if (channel.State == ConversationContextChannelState.Terminating)
                 {
-                    Console.WriteLine("Context channel is in the Terminating state");
+                    NonBlockingConsole.WriteLine("Context channel is in the Terminating state");
                     channel.EndTerminate(res);
                 }
             }
             catch (Exception e)
             {
-                Console.WriteLine("Error: Context channel terminate failed with exception: " + e.ToString());
+                NonBlockingConsole.WriteLine("Error: Context channel terminate failed with exception: " + e.ToString());
             }
         }
 
@@ -651,13 +652,13 @@ namespace LyncMeetingTranscriptBotApplication
             {
                 if (channel.State == ConversationContextChannelState.Establishing)
                 {
-                    Console.WriteLine("Context channel is in the Establishing state");
+                    NonBlockingConsole.WriteLine("Context channel is in the Establishing state");
                     channel.EndEstablish(res);
                 }
             }
             catch (Exception e)
             {
-                Console.WriteLine("Error: Context channel establish failed with exception: " + e.ToString());
+                NonBlockingConsole.WriteLine("Error: Context channel establish failed with exception: " + e.ToString());
             }
         }
 
@@ -686,7 +687,7 @@ namespace LyncMeetingTranscriptBotApplication
                 }
                 else
                 {
-                    Console.WriteLine("Warn: Already have a Conference/active conversation");
+                    NonBlockingConsole.WriteLine("Warn: Already have a Conference/active conversation");
                     // Treat this as a sub conversation?
                     /*
                     subConvRecorder = new ConversationTranscriptRecorder(this, subConversation, true);
@@ -698,7 +699,7 @@ namespace LyncMeetingTranscriptBotApplication
             }
             catch (Exception e)
             {
-                Console.WriteLine("Error: Exception occurred during conference invite acceptance: " + e.ToString());
+                NonBlockingConsole.WriteLine("Error: Exception occurred during conference invite acceptance: " + e.ToString());
             }
         }
 

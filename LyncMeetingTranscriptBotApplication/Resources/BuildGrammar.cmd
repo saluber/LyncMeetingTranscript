@@ -8,7 +8,7 @@ set grammarToolsDir="%projectDir%Resources\GrammarTools"
 set outDir="%projectDir%Resources\GeneratedSources"
 
 echo Building Grammar %grammarName%...
-cd "%grammarToolsDir%"
+cd %grammarToolsDir%
 
 echo Step 1: Validating Grammar %grammarName%...
 GrammarValidator -In "%grammarDir%\%grammarName%.grxml"

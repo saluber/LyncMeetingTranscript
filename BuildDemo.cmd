@@ -10,6 +10,7 @@ if not exist %projectName% (
 )
 	
 cd %projectName%
-copy %targetDir%
+copy /Y /B *.dll %targetDir%
+copy /Y %targetDir%
 
 echo SUCCESS.

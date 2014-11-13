@@ -1,9 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Threading;
-using System.Threading.Tasks;
+
 using Microsoft.Rtc.Collaboration;
 using Microsoft.Rtc.Collaboration.AudioVideo;
 using Microsoft.Rtc.Signaling;
@@ -80,11 +79,11 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             }
             catch (RealTimeException ex)
             {
-                Console.WriteLine("invite.EndAccept failed. Exception: {0}", ex.ToString());
+                NonBlockingConsole.WriteLine("invite.EndAccept failed. Exception: {0}", ex.ToString());
             }
             catch (InvalidOperationException ex)
             {
-                Console.WriteLine("m_conversation.ConferenceSession.BeginJoin failed. Exception: {0}", ex.ToString());
+                NonBlockingConsole.WriteLine("m_conversation.ConferenceSession.BeginJoin failed. Exception: {0}", ex.ToString());
             }
         }
 
@@ -124,11 +123,11 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             ConferenceSession confSession = sender as ConferenceSession;
 
             //Session participants allow for disambiguation.
-            Console.WriteLine("The conference session with Local Participant: " +
+            NonBlockingConsole.WriteLine("The conference session with Local Participant: " +
                 confSession.Conversation.LocalParticipant + " has changed state. " +
                 "The previous conference state was: " + e.PreviousState +
                 " and the current state is: " + e.State);
-            Console.WriteLine();
+            NonBlockingConsole.WriteLine("");
 
             Message m = new Message("ConferenceSession state changed from " + e.PreviousState.ToString()
                 + " to new value: " + e.State.ToString() + ".",
@@ -153,7 +152,7 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             // Log each participant as s/he gets added/deleted from the ConferenceSession's roster.
             foreach (KeyValuePair<ParticipantEndpoint, ConferenceParticipantEndpointProperties> pair in e.Joined)
             {
-                Console.WriteLine("{0} is notified of participant joining the conference: {1}",
+                NonBlockingConsole.WriteLine("{0} is notified of participant joining the conference: {1}",
                     confSession.Conversation.LocalParticipant.UserAtHost,
                     pair.Key.Participant.UserAtHost);
 
@@ -164,7 +163,7 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
 
             foreach (KeyValuePair<ParticipantEndpoint, ConferenceParticipantEndpointProperties> pair in e.Left)
             {
-                Console.WriteLine("{0} is notified of participant leaving the conference: {1}",
+                NonBlockingConsole.WriteLine("{0} is notified of participant leaving the conference: {1}",
                     confSession.Conversation.LocalParticipant.UserAtHost,
                     pair.Key.Participant.UserAtHost);
 
@@ -173,7 +172,7 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
                 _transcriptRecorder.OnMessageReceived(m);
             }
 
-            Console.WriteLine();
+            NonBlockingConsole.WriteLine("");
         }
 
         // Just to record the state transitions in the console.
@@ -182,15 +181,15 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
         {
             ConferenceSession confSession = sender as ConferenceSession;
 
-            Console.WriteLine(
+            NonBlockingConsole.WriteLine(
                 "{0} is notified of ConferenceSession participant property change for user: {1}. Role:{2}, CanManageLobby:{3}, InLobby:{4}",
                 confSession.Conversation.LocalParticipant.UserAtHost,
                 e.ParticipantEndpoint.Participant.UserAtHost,
-                e.Properties.Role,
-                e.Properties.CanManageLobby,
-                e.Properties.IsInLobby);
+                e.Properties.Role.ToString(),
+                e.Properties.CanManageLobby.ToString(),
+                e.Properties.IsInLobby.ToString());
 
-            Console.WriteLine();
+            NonBlockingConsole.WriteLine("");
 
             Message m = new Message("Conference participant properties changed. Changed properties: " + e.ChangedPropertyNames.ToString() + ". New property values: " + e.Properties.ToString() + ".",
                 e.ParticipantEndpoint.Participant.DisplayName,
@@ -250,7 +249,7 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
                         break;
                 }
 
-                Console.WriteLine("{0} is notified of ConferenceSession property change. {1}: {2}",
+                NonBlockingConsole.WriteLine("{0} is notified of ConferenceSession property change. {1}: {2}",
                     confSession.Conversation.LocalParticipant.UserAtHost,
                     property,
                     propertyValue);
@@ -261,7 +260,7 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
                 _transcriptRecorder.OnMessageReceived(m);
             }
 
-            Console.WriteLine();
+            NonBlockingConsole.WriteLine("");
 
             // TODO: If modalities added, establish calls on new modalities
         }
@@ -312,13 +311,13 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             List<String> activeMediaTypes = new List<string>();
             try
             {
-                Console.WriteLine("Joined the invited conference");
+                NonBlockingConsole.WriteLine("Joined the invited conference");
                 activeMediaTypes = invite.AvailableMediaTypes.ToList();
 
                 _conversation.ConferenceSession.EndJoin(result);
                 _conference = _conversation.ConferenceSession;
 
-                Console.WriteLine(string.Format(
+                NonBlockingConsole.WriteLine(string.Format(
                                               "Conference Url: conf:{0}%3Fconversation-id={1}",
                                               _conversation.ConferenceSession.ConferenceUri,
                                               _conversation.ConferenceSession.Conversation.Id));
@@ -344,13 +343,13 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             {
                 // ConferenceFailureException may be thrown on failures due to MCUs being absent or unsupported, or due to malformed parameters.
                 // It is left to the application to perform real error handling here.
-                Console.WriteLine(conferenceFailureException.ToString());
+                NonBlockingConsole.WriteLine(conferenceFailureException.ToString());
                 exception = conferenceFailureException;
             }
             catch (RealTimeException realTimeException)
             {
                 // It is left to the application to perform real error handling here.
-                Console.WriteLine(realTimeException.ToString());
+                NonBlockingConsole.WriteLine(realTimeException.ToString());
                 exception = realTimeException;
             }
             finally
@@ -362,7 +361,7 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
                 if (exception != null)
                 {
                     string originator = string.Format("Error when joining the invited conference: {0}", exception.ToString());
-                    Console.WriteLine(originator);
+                    NonBlockingConsole.WriteLine(originator);
                 }
             }
         }
@@ -378,9 +377,9 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             Exception exception = null;
             try
             {
-                Console.WriteLine("Joined the conference");
+                NonBlockingConsole.WriteLine("Joined the conference");
                 conferenceSession.EndJoin(argument);
-                Console.WriteLine(string.Format(
+                NonBlockingConsole.WriteLine(string.Format(
                                               "Conference Url: conf:{0}%3Fconversation-id={1}",
                                               conferenceSession.ConferenceUri,
                                               conferenceSession.Conversation.Id));
@@ -401,13 +400,13 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             {
                 // ConferenceFailureException may be thrown on failures due to MCUs being absent or unsupported, or due to malformed parameters.
                 // It is left to the application to perform real error handling here.
-                Console.WriteLine(conferenceFailureException.ToString());
+                NonBlockingConsole.WriteLine(conferenceFailureException.ToString());
                 exception = conferenceFailureException;
             }
             catch (RealTimeException realTimeException)
             {
                 // It is left to the application to perform real error handling here.
-                Console.WriteLine(realTimeException.ToString());
+                NonBlockingConsole.WriteLine(realTimeException.ToString());
                 exception = realTimeException;
             }
             finally
@@ -415,7 +414,7 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
                 if (exception != null)
                 {
                     string originator = string.Format("Error when joining the escalated conference.");
-                    Console.WriteLine(originator);
+                    NonBlockingConsole.WriteLine(originator);
                 }
 
                 _waitForEscalatedConferenceJoined.Set();
@@ -434,20 +433,20 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             try
             {
                 conversation.EndEscalateToConference(argument);
-                Console.WriteLine("Conversation was escalated into conference");
+                NonBlockingConsole.WriteLine("Conversation was escalated into conference");
             }
             catch (OperationFailureException operationFailureException)
             {
                 // OperationFailureException: Indicates failure to connect the call to the remote party.
                 // It is left to the application to perform real error handling here.
-                Console.WriteLine(operationFailureException.ToString());
+                NonBlockingConsole.WriteLine(operationFailureException.ToString());
                 exception = operationFailureException;
             }
             catch (RealTimeException realTimeException)
             {
                 // RealTimeException may be thrown on media or link-layer failures.
                 // It is left to the application to perform real error handling here.
-                Console.WriteLine(realTimeException.ToString());
+                NonBlockingConsole.WriteLine(realTimeException.ToString());
                 exception = realTimeException;
             }
             finally
@@ -459,7 +458,7 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
                 if (exception != null)
                 {
                     string originator = string.Format("Error when escalating to conference.");
-                    Console.WriteLine(originator);
+                    NonBlockingConsole.WriteLine(originator);
                 }
             }
         }

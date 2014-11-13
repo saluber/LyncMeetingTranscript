@@ -1,15 +1,16 @@
 ﻿using System;
-using System.IO;
-using System.Xml;
-using System.Threading;
-using System.Threading.Tasks;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Configuration;
+using System.IO;
+using System.Threading;
+using System.Threading.Tasks;
+using System.Xml;
+
 using Microsoft.Speech;
 using Microsoft.Speech.AudioFormat;
-using Microsoft.Speech.Synthesis;
 using Microsoft.Speech.Recognition;
+
 using Microsoft.Rtc.Collaboration;
 using Microsoft.Rtc.Collaboration.AudioVideo;
 using Microsoft.Rtc.Signaling;
@@ -19,7 +20,7 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
     class SpeechRecognizer
     {
         #region Fields
-        private static readonly string SpeechRecogLocaleKey = "SpeechRecognitionLocale";
+        private static readonly string SpeechRecogLocaleKey = @"SpeechRecognitionLocale";
         private static readonly string DefaultLocale = @"en-US";
 
         private AutoResetEvent _waitForAudioVideoFlowStateChangedToActiveCompleted = new AutoResetEvent(false);
@@ -75,7 +76,7 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             _currentSRLocale = ConfigurationManager.AppSettings[SpeechRecogLocaleKey];
             if (String.IsNullOrEmpty(_currentSRLocale))
             {
-                System.Console.WriteLine("No locale specified, using default locale for speech recognition: " + DefaultLocale);
+                NonBlockingConsole.WriteLine("No locale specified, using default locale for speech recognition: " + DefaultLocale);
                 _currentSRLocale = DefaultLocale;
             }
 
@@ -102,9 +103,9 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             }
             catch (Exception e)
             {
-                Console.WriteLine("Error: Unable to load SpeechRecognition locale: " + _currentSRLocale + ". Exception: " + e.ToString());
+                NonBlockingConsole.WriteLine("Error: Unable to load SpeechRecognition locale: " + _currentSRLocale + ". Exception: " + e.ToString());
                 // Use default locale
-                Console.WriteLine("Falling back to default locale for SpeechRecognitionEngine: " + DefaultLocale);
+                NonBlockingConsole.WriteLine("Falling back to default locale for SpeechRecognitionEngine: " + DefaultLocale);
                 _currentSRLocale = DefaultLocale;
                 _speechRecognitionEngine = new SpeechRecognitionEngine();
                 //_speechRecognitionEngine = new Microsoft.Speech.Recognition.SpeechRecognitionEngine(new System.Globalization.CultureInfo(_currentSRLocale));
@@ -115,15 +116,13 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             _speechRecognitionEngine.LoadGrammarCompleted += new EventHandler<Microsoft.Speech.Recognition.LoadGrammarCompletedEventArgs>(SpeechRecognitionEngine_LoadGrammarCompleted);
 
             _grammars = new List<Microsoft.Speech.Recognition.Grammar>();
-
-            // Add default installed speech recognizer grammar
-            // Might already be done via compiling with Recognition Settings File?
-
+            // TODO: Add default installed speech recognizer grammar
+            // TODO: Might already be done via compiling with Recognition Settings File?
             // Add default locale language grammar file (if it exists)
             String localLanguageGrammarFilePath = Path.Combine(Environment.CurrentDirectory, @"en-US.cfgpp");
             if (File.Exists(localLanguageGrammarFilePath))
             {
-                System.Console.WriteLine("SpeechRecognizer(). Adding locale language file at path: " + localLanguageGrammarFilePath);
+                NonBlockingConsole.WriteLine("SpeechRecognizer(). Adding locale language file at path: " + localLanguageGrammarFilePath);
                 GrammarBuilder builder = new GrammarBuilder();
                 builder.AppendRuleReference(localLanguageGrammarFilePath);
                 Grammar localeLanguageGrammar = new Grammar(builder);
@@ -151,7 +150,7 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             }
             if (_isActive)
             {
-                Console.WriteLine("Warn: SpeechRecognizer already active on an AudioFlow. Stopping current recognition session.");
+                NonBlockingConsole.WriteLine("Warn: SpeechRecognizer already active on an AudioFlow. Stopping current recognition session.");
                 StopSpeechRecognition();
             }
 
@@ -165,6 +164,7 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
 
             if (_audioVideoFlow.State == MediaFlowState.Active)
             {
+                _waitForAudioVideoFlowStateChangedToActiveCompleted.Set();
                 StartSpeechRecognition();
             }
 
@@ -175,7 +175,7 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
         {
             if (!_isActive)
             {
-                Console.WriteLine("Warn: StopSpeechRecognition() called on an inactive SpeechRecognizer.");
+                NonBlockingConsole.WriteLine("Warn: StopSpeechRecognition() called on an inactive SpeechRecognizer.");
                 return;
             }
 
@@ -251,13 +251,13 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
         // Callback that handles when the state of an AudioVideoFlow changes
         private void AudioVideoFlow_StateChanged(object sender, MediaFlowStateChangedEventArgs e)
         {
-            Console.WriteLine("AV flow state changed from " + e.PreviousState + " to " + e.State);
+            NonBlockingConsole.WriteLine("AV flow state changed from " + e.PreviousState + " to " + e.State);
             string messageText = "";
 
             //When flow is active, media operations can begin
             if (e.State == MediaFlowState.Active)
             {
-                Console.WriteLine("Starting speech recognition");
+                NonBlockingConsole.WriteLine("Starting speech recognition");
                 messageText = "Starting speech recognition";
 
                 // Flow-related media operations normally begin here.
@@ -266,9 +266,8 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             }
             else if (e.State == MediaFlowState.Terminated)
             {
-                Console.WriteLine("Stopping speech recognition");
+                NonBlockingConsole.WriteLine("Stopping speech recognition");
                 messageText = "Stopping speech recognition";
-
                 // Detach SpeechSynthesisConnector since AVFlow will not work anymore
                 this.StopSpeechRecognition();
             }
@@ -290,7 +289,7 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
         {
             if (e.Error != null)
             {
-                Console.WriteLine("Error: SpeechRecognizer receieved error from LoadGrammar(): " + e.ToString());
+                NonBlockingConsole.WriteLine("Error: SpeechRecognizer receieved error from LoadGrammar(): " + e.ToString());
 
                 string errorMessageText = "Error: SpeechRecognizer receieved error from LoadGrammar(): " + e.ToString();
                 Conversation conv = _audioVideoFlow.Call.Conversation;
@@ -304,7 +303,7 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             }
 
             _pendingLoadSpeechGrammarCounter--;
-            Console.WriteLine("SpeechRecognitionEngine load grammar completed. Pending grammar loads remaining: " + _pendingLoadSpeechGrammarCounter.ToString());
+            NonBlockingConsole.WriteLine("SpeechRecognitionEngine load grammar completed. Pending grammar loads remaining: " + _pendingLoadSpeechGrammarCounter.ToString());
 
             if (_pendingLoadSpeechGrammarCounter == 0)
             {
@@ -314,19 +313,21 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
 
         void SpeechRecognitionEngine_SpeechDetected(object sender, Microsoft.Speech.Recognition.SpeechDetectedEventArgs e)
         {
-            Console.WriteLine("SpeechRecognitionEngine has detected speech.");
+            NonBlockingConsole.WriteLine("SpeechRecognitionEngine has detected speech.");
 
             Conversation conv = _audioVideoFlow.Call.Conversation;
             ConversationParticipant speaker = _audioVideoFlow.Call.RemoteEndpoint.Participant;
             Message m = new Message("SpeechRecognitionEngine has detected speech.", speaker.DisplayName, speaker.UserAtHost,
                 speaker.Uri, DateTime.Now, conv.Id,
-                conv.ConferenceSession.ConferenceUri, MessageType.Info, MessageDirection.Outgoing);
+                (conv.ConferenceSession == null)? "null" : conv.ConferenceSession.ConferenceUri,
+                MessageType.Audio, MessageDirection.Outgoing);
+
             this._transcriptRecorder.OnMessageReceived(m);
         }
 
         void SpeechRecognitionEngine_RecognizeCompleted(object sender, Microsoft.Speech.Recognition.RecognizeCompletedEventArgs e)
         {
-            Console.WriteLine("SpeechRecognitionEngine_RecognizeCompleted.");
+            NonBlockingConsole.WriteLine("SpeechRecognitionEngine_RecognizeCompleted.");
 
             string messageText = "";
             MessageType messageModality = MessageType.Audio;
@@ -334,7 +335,7 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             Microsoft.Speech.Recognition.RecognitionResult result = e.Result;
             if (result != null)
             {
-                Console.WriteLine("Speech recognized: " + result.Text);
+                NonBlockingConsole.WriteLine("Speech recognized: " + result.Text);
                 _speechTranscript.Add(result);
                 messageText = result.Text;
             }
@@ -342,11 +343,11 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             {
                     messageText = e.Error.ToString();
                     messageModality = MessageType.Error;
-                    Console.WriteLine("Error occured during speech detection: " + e.Error.ToString());
+                    NonBlockingConsole.WriteLine("Error occured during speech detection: " + e.Error.ToString());
             }
             else if (e.InputStreamEnded || e.Cancelled)
             {
-                Console.WriteLine("Speech recognization completed due to user disconnect or conference ending.");
+                NonBlockingConsole.WriteLine("Speech recognization completed due to user disconnect or conference ending.");
                 messageText = "Speech recognization completed due to user disconnect or conference ending.";
                 messageModality = MessageType.Info;
             }
@@ -354,7 +355,7 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             {
                 messageText = "Failed to recognize speech.";
                 messageModality = MessageType.Error;
-                Console.WriteLine("Failed to recognize speech.");
+                NonBlockingConsole.WriteLine("Failed to recognize speech.");
             }
 
             if (!String.IsNullOrEmpty(messageText))
@@ -362,7 +363,7 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
                 Conversation conv = _audioVideoFlow.Call.Conversation;
                 ConversationParticipant speaker = _audioVideoFlow.Call.RemoteEndpoint.Participant;
                 Message m = new Message(messageText, speaker.DisplayName, speaker.UserAtHost, speaker.Uri, DateTime.Now, conv.Id,
-                    conv.ConferenceSession.ConferenceUri, messageModality, MessageDirection.Outgoing);
+                    (conv.ConferenceSession == null) ? "null" : conv.ConferenceSession.ConferenceUri, messageModality, MessageDirection.Outgoing);
                 this._transcriptRecorder.OnMessageReceived(m);
             }
         }

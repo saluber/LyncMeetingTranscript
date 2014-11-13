@@ -28,9 +28,18 @@ Troubleshooting Resources:
 ================================================
 How to use the application:
 ================================================
-1. Run LyncMeetingTranscriptBotApplication.exe
-2. Call app endpoint URI specified in App.config
-
+1. Run LyncMeeTtingTranscriptBotApplication.exe to start TranscriptSessionManager
+2. To start a transcript recording session:
+	a. Call application endpoint user URI (specified in App.config). 
+		i. Note: Requires LyncMeetingTranscriptBotApp to be compiled with "CONVERSATION_DIALOUT_ENABLED" flag set (*set by default*).
+	b. Invite application endpoint user URI (specified in App.config) to active conference. 
+		i. Note: Requires LyncMeetingTranscriptBotApp to be compiled with "CONFERENCE_DIALOUT_ENABLED" flag set (*set by default*).
+	c. Lync Meeting Transcript dials out to UserUri2 (specified in App.config) and starts a transcript recording session on that conversation. 
+		i. Note: Requires LyncMeetingTranscriptBotApp to be compiled with "CONVERSATION_DIALIN_ENABLED" flag set
+		ii. Note: UserUri2 (in App.config) must be set to a valid user Uri
+	d. Lync Meeting Transcript dials out to ConferenceUri (specified in App.config) and starts a transcript recording session on that conference.
+		i. Note: Requires LyncMeetingTranscriptBotApp to be compiled with "CONFERENCE_DIALIN_ENABLED" flag set
+		ii. Note: ConferenceUri (in App.config) must be set to a valid conference Uri
 ================================================
 Questions/feedback?
 Please contact: SamiL AT microsoft.com

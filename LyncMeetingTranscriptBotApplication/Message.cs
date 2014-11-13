@@ -1,10 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Xml;
 
 namespace LyncMeetingTranscriptBotApplication
 {
@@ -234,7 +229,7 @@ namespace LyncMeetingTranscriptBotApplication
 
         internal void Print()
         {
-            Console.WriteLine(this.ToString());
+            NonBlockingConsole.WriteLine(this.ToString());
         }
     }
 }

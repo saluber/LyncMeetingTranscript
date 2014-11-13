@@ -1,9 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Threading;
+
 using Microsoft.Rtc.Collaboration;
 using Microsoft.Rtc.Collaboration.AudioVideo;
 using Microsoft.Rtc.Signaling;
@@ -156,14 +153,14 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
         {
             if (_state == TranscriptRecorderState.Terminated)
             {
-                Console.WriteLine("Error: AVTranscriptRecorder is shutdown.");
+                NonBlockingConsole.WriteLine("Error: AVTranscriptRecorder is shutdown.");
                 // TODO: Error message
                 return;
             }
 
             if (_audioVideoCall != null)
             {
-                Console.WriteLine("Warn: AVCall already exists for this Conversation. Shutting down previous call...");
+                NonBlockingConsole.WriteLine("Warn: AVCall already exists for this Conversation. Shutting down previous call...");
                 // TODO: Info message
                 TerminateCall();
             }
@@ -190,9 +187,9 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             // message for this call. In Microsoft Lync, the toast will 
             // show up in the lower-right of the screen.
             // TODO: change this to preserve confidentiality in the video demo
-            //Console.WriteLine("Call Received! From: " + e.RemoteParticipant.Uri + " Toast is: " + e.ToastMessage.Message);
-            Console.WriteLine("Call Received! From: " + e.RemoteParticipant.Uri);
-            //Console.WriteLine("Call Received!");
+            //NonBlockingConsole.WriteLine("Call Received! From: " + e.RemoteParticipant.Uri + " Toast is: " + e.ToastMessage.Message);
+            NonBlockingConsole.WriteLine("Call Received! From: " + e.RemoteParticipant.Uri);
+            //NonBlockingConsole.WriteLine("Call Received!");
 
             Message m = new Message("AudioVideoCall Received. Inbound call state: " + _audioVideoCall.State.ToString(),
                 e.RemoteParticipant.DisplayName, e.RemoteParticipant.UserAtHost, e.RemoteParticipant.Uri,
@@ -206,21 +203,21 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
 
             // Wait for a few seconds to give time for the call to get to the Established state.
             //_waitForAudioVideoCallAccepted.WaitOne(2000);
-            Console.WriteLine("Inbound call state is {0}\n", _audioVideoCall.State);
+            NonBlockingConsole.WriteLine("Inbound call state is {0}\n", _audioVideoCall.State.ToString());
         }
 
         public void EstablishAudioVideoCall(Conversation conversation)
         {
             if (_state == TranscriptRecorderState.Terminated)
             {
-                Console.WriteLine("Error: AVTranscriptRecorder has already been shutdown.");
+                NonBlockingConsole.WriteLine("Error: AVTranscriptRecorder has already been shutdown.");
                 // TODO: Error message
                 return;
             }
 
             if (_audioVideoCall != null)
             {
-                Console.WriteLine("Warn: AVCall already exists for this Conversation. Shutting down previous call...");
+                NonBlockingConsole.WriteLine("Warn: AVCall already exists for this Conversation. Shutting down previous call...");
                 // TODO: info message
                 TerminateCall();
             }
@@ -250,7 +247,7 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             }
             catch (InvalidOperationException ex)
             {
-                Console.WriteLine("Error: avCall.BeginEstablish failed. Exception: {0}", ex.ToString());
+                NonBlockingConsole.WriteLine("Error: avCall.BeginEstablish failed. Exception: {0}", ex.ToString());
                 // TODO: Error message
             }
         }
@@ -272,7 +269,7 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             }
             catch (RealTimeException ex)
             {
-                Console.WriteLine("Error: avCall.EndEstablish failed. Exception: {0}", ex.ToString());
+                NonBlockingConsole.WriteLine("Error: avCall.EndEstablish failed. Exception: {0}", ex.ToString());
                 // TODO: Error message
             }
             finally
@@ -287,7 +284,7 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             Call call = sender as Call;
 
             //Call participants allow for disambiguation.
-            Console.WriteLine("The AudioVideo call with Local Participant: " + call.Conversation.LocalParticipant +
+            NonBlockingConsole.WriteLine("The AudioVideo call with Local Participant: " + call.Conversation.LocalParticipant +
                 " and Remote Participant: " + call.RemoteEndpoint.Participant +
                 " has changed state. The previous call state was: " + e.PreviousState +
                 " and the current state is: " + e.State);
@@ -303,7 +300,7 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             if ((e.State == CallState.Terminating)
                 || (e.State == CallState.Terminated))
             {
-                Console.WriteLine("Shutting down AVTranscriptRecorder");
+                NonBlockingConsole.WriteLine("Shutting down AVTranscriptRecorder");
                 _waitForAudioVideoCallTerminated.Set();
                 this.Shutdown();
             }
@@ -318,7 +315,7 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
         //Flow configuration requested indicates that there is a flow present to begin media operations with that it is no longer null, and is ready to be configured.
         public void AudioVideoCall_FlowConfigurationRequested(object sender, AudioVideoFlowConfigurationRequestedEventArgs e)
         {
-            Console.WriteLine("AV Flow Configuration Requested.");
+            NonBlockingConsole.WriteLine("AV Flow Configuration Requested.");
             _audioVideoFlow = e.Flow;
 
             Message m = new Message("AV Flow Configuration Requested.",
@@ -339,11 +336,11 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
 
         private void AudioVideoCall_ConversationChanged(object sender, ConversationChangedEventArgs e)
         {
-            Console.WriteLine("AVCall conversation changed. Reason: " + e.Reason.ToString());
+            NonBlockingConsole.WriteLine("AVCall conversation changed. Reason: " + e.Reason.ToString());
 
             if (_subConversation != null)
             {
-                Console.WriteLine("Warn: Subconversation already set. Clearing previous subconversation.");
+                NonBlockingConsole.WriteLine("Warn: Subconversation already set. Clearing previous subconversation.");
                 _transcriptRecorder.OnSubConversationRemoved(_subConversation, this);
             }
 
@@ -366,7 +363,7 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
         // Callback that handles when the state of an AudioVideoFlow changes
         private void AudioVideoFlow_StateChanged(object sender, MediaFlowStateChangedEventArgs e)
         {
-            Console.WriteLine("AV flow state changed from " + e.PreviousState + " to " + e.State);
+            NonBlockingConsole.WriteLine("AV flow state changed from " + e.PreviousState + " to " + e.State);
 
             if (_transcriptRecorder != null)
             {
@@ -414,7 +411,7 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
                 // Determine whether the Call was accepted successfully.
                 call.EndAccept(ar);
 
-                Console.WriteLine("Inbound AudioVideo call with Local Participant: " + call.Conversation.LocalParticipant + " and Remote Participant: " + call.RemoteEndpoint.Participant + " has been accepted.");
+                NonBlockingConsole.WriteLine("Inbound AudioVideo call with Local Participant: " + call.Conversation.LocalParticipant.Uri + " and Remote Participant: " + call.RemoteEndpoint.Participant.Uri + " has been accepted.");
 
                 Message m = new Message("AudioVideoCall Accepted. Call state: " + _audioVideoCall.State.ToString(),
                     call.RemoteEndpoint.Participant.DisplayName, call.RemoteEndpoint.Participant.UserAtHost, call.RemoteEndpoint.Participant.Uri,
@@ -428,7 +425,7 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
                 // RealTimeException may be thrown on media or link-layer 
                 // failures. 
                 // TODO: Add actual error handling code here.
-                Console.WriteLine("Error accepting AVCall: " + exception.ToString());
+                NonBlockingConsole.WriteLine("Error accepting AVCall: " + exception.ToString());
             }
             finally
             {
@@ -451,7 +448,7 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             }
             catch (Exception e)
             {
-                Console.WriteLine("Error terminating AV call: " + e.ToString());
+                NonBlockingConsole.WriteLine("Error terminating AV call: " + e.ToString());
                 // TODO: Error message
             }
             finally

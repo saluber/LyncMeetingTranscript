@@ -1,11 +1,8 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Threading;
-using System.Threading.Tasks;
+
 using Microsoft.Rtc.Collaboration;
-using Microsoft.Rtc.Collaboration.AudioVideo;
 using Microsoft.Rtc.Signaling;
 
 namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
@@ -163,7 +160,7 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
         void Conversation_StateChanged(object sender, StateChangedEventArgs<ConversationState> e)
         {
             Conversation conv = sender as Conversation;
-            Console.WriteLine("Conversation {0} state changed from " + e.PreviousState + " to " + e.State, conv.LocalParticipant.UserAtHost);
+            NonBlockingConsole.WriteLine("Conversation {0} state changed from " + e.PreviousState + " to " + e.State, conv.LocalParticipant.UserAtHost);
 
             Message m = new Message("Conversation state changed from " + e.PreviousState.ToString() + " to " + e.State.ToString(),
                 MessageType.ConversationInfo, _conversation.Id);
@@ -189,7 +186,7 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             // Log each participant as s/he gets added/deleted from the Conversation's roster.
             foreach (ConversationParticipant p in e.Added)
             {
-                Console.WriteLine("{0} is notified of participant joining the conversation: {1}",
+                NonBlockingConsole.WriteLine("{0} is notified of participant joining the conversation: {1}",
                     conv.LocalParticipant.UserAtHost,
                     p.UserAtHost);
 
@@ -200,7 +197,7 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
 
             foreach (ConversationParticipant p in e.Removed)
             {
-                Console.WriteLine("{0} is notified of participant leaving the conversation: {1}",
+                NonBlockingConsole.WriteLine("{0} is notified of participant leaving the conversation: {1}",
                     conv.LocalParticipant.UserAtHost,
                     p.UserAtHost);
 
@@ -209,7 +206,7 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
                 _transcriptRecorder.OnMessageReceived(m);
             }
 
-            Console.WriteLine();
+            NonBlockingConsole.WriteLine("");
         }
 
         // Just to record the state transitions in the console.
@@ -223,13 +220,13 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
         {
             Conversation conv = sender as Conversation;
             
-            Console.WriteLine(
+            NonBlockingConsole.WriteLine(
                 "{0} is notified of Conversation participant property change for user: {1}. Role:{2}",
                 conv.LocalParticipant.UserAtHost,
                 e.Participant.UserAtHost,
-                e.Properties.Role);
+                e.Properties.Role.ToString());
 
-            Console.WriteLine();
+            NonBlockingConsole.WriteLine("");
 
             Message m = new Message("Conversation Participant Properties changed. Properties changed: " + e.ChangedPropertyNames.ToArray<String>().ToString()
                 + ". Participant Property Values: " + e.Properties.ToString() + ".",
@@ -248,19 +245,19 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
                     switch (propertyName)
                     {
                         case ConversationProperties.ConversationIdPropertyName:
-                            Console.WriteLine("Conversation id changed to {0}", e.Properties.Id);
+                            NonBlockingConsole.WriteLine("Conversation id changed to {0}", e.Properties.Id);
                             break;
                         case ConversationProperties.ConversationPriorityPropertyName:
-                            Console.WriteLine("Conversation priority changed to {0}", e.Properties.Priority);
+                            NonBlockingConsole.WriteLine("Conversation priority changed to {0}", e.Properties.Priority);
                             break;
                         case ConversationProperties.ConversationSubjectPropertyName:
-                            Console.WriteLine("Conversation subject changed to {0}", e.Properties.Subject);
+                            NonBlockingConsole.WriteLine("Conversation subject changed to {0}", e.Properties.Subject);
                             break;
                         case ConversationProperties.ConversationActiveMediaTypesPropertyName:
-                            Console.WriteLine("Conversation active media types property name changed to");
+                            NonBlockingConsole.WriteLine("Conversation active media types property name changed to");
                             foreach (string activeMedia in e.Properties.ActiveMediaTypes)
                             {
-                                Console.WriteLine(activeMedia);
+                                NonBlockingConsole.WriteLine(activeMedia);
                                 // TODO: Add calls for new active media types (and terminate calls for nonactive media types)
                             }
                             break;

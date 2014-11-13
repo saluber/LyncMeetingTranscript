@@ -1,14 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
+﻿namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
 {
-    public enum TranscriptRecorderType { AudioVideo, InstantMessage, Conversation, Conference }
+    public enum TranscriptRecorderType { AudioVideo = 1, InstantMessage = 2, Conversation = 3, Conference = 4 }
 
-    public enum TranscriptRecorderState { Initialized, Active, Terminated }
+    public enum TranscriptRecorderState { Initialized = 1, Active = 2, Terminated = 3 }
 
     public abstract class MediaTranscriptRecorder
     {

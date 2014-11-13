@@ -1,11 +1,7 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.Threading;
-using System.Threading.Tasks;
+
 using Microsoft.Rtc.Collaboration;
-using Microsoft.Rtc.Collaboration.AudioVideo;
 using Microsoft.Rtc.Signaling;
 
 namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
@@ -145,14 +141,14 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
         {
             if (_state == TranscriptRecorderState.Terminated)
             {
-                Console.WriteLine("Error: IMTranscriptRecorder is shutdown.");
+                NonBlockingConsole.WriteLine("Error: IMTranscriptRecorder is shutdown.");
                 // TODO: Info message
                 return;
             }
 
             if (_instantMessagingCall != null)
             {
-                Console.WriteLine("Warn: IMCall already exists for this Conversation. Shutting down previous call...");
+                NonBlockingConsole.WriteLine("Warn: IMCall already exists for this Conversation. Shutting down previous call...");
                 // TODO: Info message
                 TerminateCall();
             }
@@ -179,8 +175,8 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             // 'greet' message for this call. In Microsoft Lync, the 
             // toast will show up in the lower-right of the screen.
             // TODO: Change to protect privacy
-            // Console.WriteLine("IMCall Received! From: " + e.RemoteParticipant.Uri + " Toast is: " + e.ToastMessage.Message);
-            Console.WriteLine("IMCall Received! From: " + e.RemoteParticipant.Uri);
+            // NonBlockingConsole.WriteLine("IMCall Received! From: " + e.RemoteParticipant.Uri + " Toast is: " + e.ToastMessage.Message);
+            NonBlockingConsole.WriteLine("IMCall Received! From: " + e.RemoteParticipant.Uri);
             // Console.Writelin("IMCall Received!");
 
             Message m = new Message("InstantMessagingCall Received. Inbound call state: " + _instantMessagingCall.State.ToString(),
@@ -197,14 +193,14 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
         {
             if (_state == TranscriptRecorderState.Terminated)
             {
-                Console.WriteLine("Error: IMTranscriptRecorder is shutdown.");
+                NonBlockingConsole.WriteLine("Error: IMTranscriptRecorder is shutdown.");
                 // TODO: error message
                 return;
             }
 
             if (_instantMessagingCall != null)
             {
-                Console.WriteLine("Warn: IMCall already exists for this Conversation. Shutting down previous call...");
+                NonBlockingConsole.WriteLine("Warn: IMCall already exists for this Conversation. Shutting down previous call...");
                 // TODO: Info message
                 TerminateCall();
             }
@@ -232,7 +228,7 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             }
             catch (InvalidOperationException ex)
             {
-                Console.WriteLine("Error: imCall.BeginEstablish failed. Exception: {0}", ex.ToString());
+                NonBlockingConsole.WriteLine("Error: imCall.BeginEstablish failed. Exception: {0}", ex.ToString());
                 // TODO: Error Message
             }
         }
@@ -254,7 +250,7 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             }
             catch (RealTimeException ex)
             {
-                Console.WriteLine("Error: imCall.EndEstablish failed. Exception: {0}", ex.ToString());
+                NonBlockingConsole.WriteLine("Error: imCall.EndEstablish failed. Exception: {0}", ex.ToString());
                 // TODO: error message
             }
             finally
@@ -269,7 +265,7 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             Call call = sender as Call;
 
             //Call participants allow for disambiguation.
-            Console.WriteLine("The InstantMessaging call with Local Participant: " + call.Conversation.LocalParticipant +
+            NonBlockingConsole.WriteLine("The InstantMessaging call with Local Participant: " + call.Conversation.LocalParticipant +
                 " and Remote Participant: " + call.RemoteEndpoint.Participant +
                 " has changed state. The previous call state was: " + e.PreviousState +
                 " and the current state is: " + e.State);
@@ -284,7 +280,7 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
 
             if (e.State == CallState.Terminating || e.State == CallState.Terminated)
             {
-                Console.WriteLine("Shutting down IMTranscriptRecorder");
+                NonBlockingConsole.WriteLine("Shutting down IMTranscriptRecorder");
                 _waitForIMCallTerminated.Set();
                 this.Shutdown();
             }
@@ -301,7 +297,7 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
         public void InstantMessagingCall_FlowConfigurationRequested(object sender,
             InstantMessagingFlowConfigurationRequestedEventArgs e)
         {
-            Console.WriteLine("IM Flow Configuration Requested.");
+            NonBlockingConsole.WriteLine("IM Flow Configuration Requested.");
             _instantMessagingFlow = e.Flow;
 
             Message m = new Message("IM Flow Configuration Requested.",
@@ -328,10 +324,10 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
 
         private void InstantMessagingCall_ConversationChanged(object sender, ConversationChangedEventArgs e)
         {
-            Console.WriteLine("IMCall conversation changed. Reason: " + e.Reason.ToString());
+            NonBlockingConsole.WriteLine("IMCall conversation changed. Reason: " + e.Reason.ToString());
             if (_subConversation != null)
             {
-                Console.WriteLine("Warn: Subconversation already set. Clearing previous subconversation.");
+                NonBlockingConsole.WriteLine("Warn: Subconversation already set. Clearing previous subconversation.");
                 _transcriptRecorder.OnSubConversationRemoved(_subConversation, this);
             }
 
@@ -353,7 +349,7 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
 
         private void InstantMessagingFlow_StateChanged(object sender, MediaFlowStateChangedEventArgs e)
         {
-            Console.WriteLine("IM flow state changed from " + e.PreviousState + " to " + e.State);
+            NonBlockingConsole.WriteLine("IM flow state changed from " + e.PreviousState + " to " + e.State);
 
             Message m = new Message("InstantMessagingFlow changed from " + e.PreviousState + " to " + e.State + ".",
                 MessageType.InstantMessage,
@@ -378,7 +374,7 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
         private void InstantMessagingFlow_MessageReceived(object sender, InstantMessageReceivedEventArgs e)
         {
             // On an incoming Instant Message, print the contents to the console.
-            Console.WriteLine(e.Sender.Uri + " said: " + e.TextBody);
+            NonBlockingConsole.WriteLine(e.Sender.Uri + " said: " + e.TextBody);
 
             Message m = new Message(e.TextBody, e.Sender.DisplayName, e.Sender.UserAtHost, e.Sender.Uri, DateTime.Now,
                 _instantMessagingCall.Conversation.Id, _instantMessagingCall.Conversation.ConferenceSession.ConferenceUri,
@@ -418,7 +414,7 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
                 // A production application should catch additional exceptions, such as OperationTimeoutException,
                 // OperationTimeoutException, and CallOperationTimeoutException.
 
-                Console.WriteLine(exception.ToString());
+                NonBlockingConsole.WriteLine(exception.ToString());
             }
             finally
             {
@@ -444,7 +440,7 @@ namespace LyncMeetingTranscriptBotApplication.TranscriptRecorders
             }
             catch (Exception e)
             {
-                Console.WriteLine(e.ToString());
+                NonBlockingConsole.WriteLine(e.ToString());
             }
             finally
             {

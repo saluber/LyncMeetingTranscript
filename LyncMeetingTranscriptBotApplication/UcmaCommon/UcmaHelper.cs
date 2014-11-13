@@ -32,7 +32,8 @@ namespace LyncMeetingTranscriptBotApplication
         private static String _userNamePrompt = "UserName";
         private static String _userDomainPrompt = "UserDomain";
         private static String _userURIPrompt = "UserURI";
-        private static String _remoteUserURIPrompt = "UserURI";
+        private static String _remoteUserURIPrompt = "UserUri2";
+        private static String _conferenceURIPrompt = "ConferenceUri";
 
         // Construct the network credential that the UserEndpoint will use to authenticate to the Microsoft Lync Server.
         private string _userName; // User name and password pair of a user enabled for Microsoft Lync Server. 
@@ -43,6 +44,7 @@ namespace LyncMeetingTranscriptBotApplication
         // The URI and connection server of the user used.
         private string _userURI; // This should be the URI of the user given above.
         private string _remoteUserURI; // The URI of the remote endpoint.
+        private string _conferenceURI; // The URI of the remote endpoint.
 
         // The Server FQDN used.
         private static string _serverFqdn;// The Microsoft Lync Server to log in to.
@@ -52,7 +54,6 @@ namespace LyncMeetingTranscriptBotApplication
 
         private static CollaborationPlatform _collabPlatform;
         private static bool _isPlatformStarted;
-        private static CollaborationPlatform _serverCollabPlatform;
         private AutoResetEvent _platformStartupCompleted = new AutoResetEvent(false);
         private AutoResetEvent _endpointInitCompletedEvent = new AutoResetEvent(false);
         private AutoResetEvent _platformShutdownCompletedEvent = new AutoResetEvent(false);
@@ -77,14 +78,14 @@ namespace LyncMeetingTranscriptBotApplication
 
             try
             {
-                Console.WriteLine(string.Empty);
-                Console.WriteLine("Creating User Endpoint for {0}...", userFriendlyName);
-                Console.WriteLine();
+                NonBlockingConsole.WriteLine(string.Empty);
+                NonBlockingConsole.WriteLine("Creating User Endpoint for {0}...", userFriendlyName);
+                NonBlockingConsole.WriteLine("");
 
                 if (ConfigurationManager.AppSettings[_serverFQDNPrompt + _userCount] != null)
                 {
                     _serverFqdn = ConfigurationManager.AppSettings[_serverFQDNPrompt + _userCount];
-                    Console.WriteLine("Using {0} as Microsoft Lync Server", _serverFqdn);
+                    NonBlockingConsole.WriteLine("Using {0} as Microsoft Lync Server", _serverFqdn);
                 }
                 else
                 {
@@ -119,7 +120,7 @@ namespace LyncMeetingTranscriptBotApplication
                 // If user name is empty, use current credentials
                 if (string.IsNullOrEmpty(_userName))
                 {
-                    Console.WriteLine("Username was empty - using current credentials...");
+                    NonBlockingConsole.WriteLine("Username was empty - using current credentials...");
                     _useSuppliedCredentials = true;
                 }
                 else
@@ -158,7 +159,7 @@ namespace LyncMeetingTranscriptBotApplication
             catch (InvalidOperationException iOpEx)
             {
                 // Invalid Operation Exception should only be thrown on poorly-entered input.
-                Console.WriteLine("Invalid Operation Exception: " + iOpEx.ToString());
+                NonBlockingConsole.WriteLine("Invalid Operation Exception: " + iOpEx.ToString());
             }
 
             return userEndpointSettings;
@@ -197,7 +198,7 @@ namespace LyncMeetingTranscriptBotApplication
 
                 // Sync; wait for the platform startup to complete.
                 _platformStartupCompleted.WaitOne();
-                Console.WriteLine("Platform started...");
+                NonBlockingConsole.WriteLine("Platform started...");
                 _isPlatformStarted = true;
             }
             // Establish the user endpoint
@@ -205,7 +206,7 @@ namespace LyncMeetingTranscriptBotApplication
 
             // Sync; wait for the registration to complete.
             _endpointInitCompletedEvent.WaitOne();
-            Console.WriteLine("Endpoint established...");
+            NonBlockingConsole.WriteLine("Endpoint established...");
             return true;
         }
 
@@ -233,7 +234,7 @@ namespace LyncMeetingTranscriptBotApplication
             catch (InvalidOperationException iOpEx)
             {
                 // Invalid Operation Exception should only be thrown on poorly-entered input.
-                Console.WriteLine("Invalid Operation Exception: " + iOpEx.ToString());
+                NonBlockingConsole.WriteLine("Invalid Operation Exception: " + iOpEx.ToString());
             }
 
             return userEndpoint;
@@ -246,27 +247,53 @@ namespace LyncMeetingTranscriptBotApplication
             String str = "";
             try
             {
-                if (ConfigurationManager.AppSettings[_remoteUserURIPrompt + _userCount] != null)
+                if (ConfigurationManager.AppSettings[_remoteUserURIPrompt] != null)
                 {
-                    _remoteUserURI = ConfigurationManager.AppSettings[_remoteUserURIPrompt + _userCount];
-                    Console.WriteLine("\nUsing {0} as remote user", _remoteUserURI);
+                    _remoteUserURI = ConfigurationManager.AppSettings[_remoteUserURIPrompt];
+                    NonBlockingConsole.WriteLine("\nUsing {0} as remote user", _remoteUserURI);
                     return _remoteUserURI;
                 }
                 else
                 {
                     // Prompt user for remote user URI
-                    _remoteUserURI = UcmaHelper.PromptUser("Enter the URI for the remote user logged onto Communicator, in the sip:User@Host format or tel:+1XXXYYYZZZZ format => ", "RemoteUserURI");
+                    _remoteUserURI = UcmaHelper.PromptUser("Enter the URI for the remote user to call, in the sip:User@Host format or tel:+1XXXYYYZZZZ format => ", "RemoteUserURI");
                     return str;
                 }
             }
             catch (InvalidOperationException iOpEx)
             {
                 // Invalid Operation Exception should only be thrown on poorly-entered input.
-                Console.WriteLine("Invalid Operation Exception: " + iOpEx.ToString());
+                NonBlockingConsole.WriteLine("Invalid Operation Exception: " + iOpEx.ToString());
                 return str;
             }
         }
 
+        // Returns the Uri of conference to join.
+        public String GetConferenceURI()
+        {
+            String str = "";
+            try
+            {
+                if (ConfigurationManager.AppSettings[_conferenceURIPrompt] != null)
+                {
+                    _conferenceURI = ConfigurationManager.AppSettings[_conferenceURIPrompt];
+                    NonBlockingConsole.WriteLine("\nUsing {0} as remote user", _conferenceURI);
+                    return _conferenceURI;
+                }
+                else
+                {
+                    // Prompt user for conference URI
+                    _conferenceURI = UcmaHelper.PromptUser("Enter the URI for the conference to join, in the sip:User@Host format or tel:+1XXXYYYZZZZ format => ", "ConferenceURI");
+                    return str;
+                }
+            }
+            catch (InvalidOperationException iOpEx)
+            {
+                // Invalid Operation Exception should only be thrown on poorly-entered input.
+                NonBlockingConsole.WriteLine("Invalid Operation Exception: " + iOpEx.ToString());
+                return str;
+            }
+        }
 
         /// <summary>
         /// If the 'key' is not found in app config, prompts the user using prompt text.
@@ -279,14 +306,14 @@ namespace LyncMeetingTranscriptBotApplication
             String value;
             if (String.IsNullOrEmpty(key) || ConfigurationManager.AppSettings[key] == null)
             {
-                Console.WriteLine(string.Empty);
+                NonBlockingConsole.WriteLine(string.Empty);
                 Console.Write(promptText);
                 value = Console.ReadLine();
             }
             else
             {
                 value = ConfigurationManager.AppSettings[key];
-                Console.WriteLine("Using keypair {0} - {1} from AppSettings...", key, value);
+                NonBlockingConsole.WriteLine("Using keypair {0} - {1} from AppSettings...", key, value);
             }
 
             return value;
@@ -298,9 +325,9 @@ namespace LyncMeetingTranscriptBotApplication
         /// <param name="textToDisplay">Text to display with whitespace around it.</param>
         public static void PauseBeforeContinuing(string textToDisplay)
         {
-            Console.WriteLine("\n\n********************");
-            Console.WriteLine(textToDisplay);
-            Console.WriteLine("********************\n\n");
+            NonBlockingConsole.WriteLine("\n\n********************");
+            NonBlockingConsole.WriteLine(textToDisplay);
+            NonBlockingConsole.WriteLine("********************\n\n");
             Console.ReadLine();
         }
 
@@ -319,20 +346,20 @@ namespace LyncMeetingTranscriptBotApplication
             catch (OperationFailureException opFailEx)
             {
                 // OperationFailureException will be thrown when the platform cannot establish, here, usually due to invalid data.
-                Console.WriteLine(opFailEx.Message);
+                NonBlockingConsole.WriteLine(opFailEx.Message);
                 throw;
             }
             catch (ConnectionFailureException connFailEx)
             {
                 // ConnectionFailureException will be thrown when the platform cannot connect.
                 // ClientPlatforms will not throw this exception on startup.
-                Console.WriteLine(connFailEx.Message);
+                NonBlockingConsole.WriteLine(connFailEx.Message);
                 throw;
             }
             catch (RealTimeException realTimeEx)
             {
                 // RealTimeException may be thrown as a result of any UCMA operation.
-                Console.WriteLine(realTimeEx.Message);
+                NonBlockingConsole.WriteLine(realTimeEx.Message);
                 throw;
             }
             finally
@@ -353,19 +380,19 @@ namespace LyncMeetingTranscriptBotApplication
             catch (AuthenticationException authEx)
             {
                 // AuthenticationException will be thrown when the credentials are invalid.
-                Console.WriteLine(authEx.Message);
+                NonBlockingConsole.WriteLine(authEx.Message);
                 throw;
             }
             catch (ConnectionFailureException connFailEx)
             {
                 // ConnectionFailureException will be thrown when the endpoint cannot connect to the server, or the credentials are invalid.
-                Console.WriteLine(connFailEx.Message);
+                NonBlockingConsole.WriteLine(connFailEx.Message);
                 throw;
             }
             catch (InvalidOperationException iOpEx)
             {
                 // InvalidOperationException will be thrown when the endpoint is not in a valid state to connect. To connect, the platform must be started and the Endpoint Idle.
-                Console.WriteLine(iOpEx.Message);
+                NonBlockingConsole.WriteLine(iOpEx.Message);
                 throw;
             }
             finally
@@ -399,7 +426,7 @@ namespace LyncMeetingTranscriptBotApplication
             {
                 //Shutdown actions will not throw.
                 collabPlatform.EndShutdown(ar);
-                Console.WriteLine("The platform is now shut down.");
+                NonBlockingConsole.WriteLine("The platform is now shut down.");
             }
             finally
             {
@@ -432,13 +459,13 @@ namespace LyncMeetingTranscriptBotApplication
 
         public static void WriteLine(string line)
         {
-            Console.WriteLine(line);
+            NonBlockingConsole.WriteLine(line);
         }
 
         public static void WriteErrorLine(string line)
         {
             Console.ForegroundColor = ConsoleColor.Red;
-            Console.WriteLine(line);
+            NonBlockingConsole.WriteLine(line);
             Console.ResetColor();
         }
 
@@ -453,7 +480,7 @@ namespace LyncMeetingTranscriptBotApplication
         /// </summary>
         public static void FinishSample()
         {
-            Console.WriteLine("Please hit any key to end the sample.");
+            NonBlockingConsole.WriteLine("Please hit any key to end the sample.");
             Console.ReadKey();
             _sampleFinished.Set();
         }

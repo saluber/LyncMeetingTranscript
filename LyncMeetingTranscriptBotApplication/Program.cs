@@ -1,68 +1,40 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
 using System.IO;
+using System.Threading.Tasks;
+using System.Threading;
 
 namespace LyncMeetingTranscriptBotApplication
 {
     class Program
     {
-        public TranscriptRecorderSessionManager _appSession = null;
+        private static TranscriptRecorderSessionManager _appSession = null;
 
         static void Main(string[] args)
         {
-            Program program = new Program();
-            program.Run();
-        }
-
-        void Run()
-        {
+            // Init Transcript Recorder Session Manager
             _appSession = new TranscriptRecorderSessionManager();
-            _appSession.Run();
 
-            Console.WriteLine("Program: Press any key to exit.");
-            Console.ReadLine();
-            _appSession.Shutdown();
-        }
-
-        // TODO: Use async correctly at Program/Main-level
-        void RunAsync()
-        {
-            _appSession = new TranscriptRecorderSessionManager();
-            Task t = Task.Factory.StartNew(() => _appSession.RunAsync(), TaskCreationOptions.LongRunning);
-            /*
-            Task t = Task.Factory.StartNew(()=>
-                {
-                    _appSession.RunAsync().Wait();
-                }, Task.Factory.CancellationToken, TaskCreationOptions.LongRunning, Task.Factory.Scheduler);
-            */
-            while (true)
+            // Cancel token to terminate program early on cntrl + c
+            CancellationTokenSource cts = new CancellationTokenSource();
+            System.Console.CancelKeyPress += (s, e) =>
             {
-                if (t.IsCompleted || t.IsCanceled || t.IsFaulted)
-                {
-                    break;
-                }
+                e.Cancel = true;
+                cts.Cancel();
+            };
 
-                Thread.Sleep(5000);
-            }
-
-            //System.Console.WriteLine("MeetingTranscriptSession is now running. Press any key to stop, or session will automatically stop when first active conversation is terminated");
-            /*while (!Console.ReadLine().Equals("quit", StringComparison.InvariantCultureIgnoreCase) && !t.IsCompleted)
+            try
             {
-                Task.Delay(5000).Wait();
+                _appSession.RunAsync(cts.Token).Wait();
             }
-
-            if (!t.IsCompleted)
+            catch (Exception e)
             {
-                t.Dispose();
+                NonBlockingConsole.WriteLine("TranscriptRecorderSessionManager exited with exception: " + e.ToString());
             }
-            */
-            Console.WriteLine("Program: Press any key to exit.");
-            Console.ReadLine();
-            _appSession.Shutdown();
+            finally
+            {
+                Task shutdownTask = _appSession.ShutdownAsync();
+                shutdownTask.Wait();
+            }
         }
     }
 }

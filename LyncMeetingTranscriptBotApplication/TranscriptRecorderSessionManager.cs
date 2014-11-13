@@ -1,119 +1,133 @@
 ﻿using System;
-using System.Configuration;
-using System.Linq;
-using System.Text;
+using System.Collections.Generic;
 using System.IO;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Collections;
-using System.Collections.Generic;
+
 using Microsoft.Rtc.Collaboration;
 using Microsoft.Rtc.Collaboration.AudioVideo;
-using Microsoft.Rtc.Signaling;
-using LyncMeetingTranscriptBotApplication.TranscriptRecorders;
 
 namespace LyncMeetingTranscriptBotApplication
 {
+    enum TranscriptSessionManagerState 
+    { 
+        Created = 1, 
+        Idle = 2, 
+        Active = 3, 
+        Terminating = 4, 
+        Terminated = 5 
+    }
+    
     public class TranscriptRecorderSessionManager
     {
-        private Guid _sessionManagerId;
+        private static object s_lock = new object();
 
-        private UcmaHelper _helper;
-        private UserEndpoint _userEndpoint;
-        private bool _isTerminating = false;
+        private Guid _identity;
+        private TranscriptSessionManagerState _state = TranscriptSessionManagerState.Created;
         private Dictionary<Conversation, TranscriptRecorderSession> _activeConversationSessions;
         private Dictionary<ConferenceSession, TranscriptRecorderSession> _activeConferenceSessions;
 
-        // Calls
-        private AudioVideoCall _incomingAVCall;
-        private AudioVideoCall _outgoingAVCall;
-        private InstantMessagingCall _imCall;
-
-        // Flows
-        private AudioVideoFlow _audioVideoFlow;
-        private InstantMessagingFlow _instantMessagingFlow;
-
-        // The information for the conversation and the far end participant.
-        // The target of the call (agent) in the format sip:user@host (should be logged on when the application is run). This could also be in the format tel:+1XXXYYYZZZZ
-        private static String _calledParty;
-        private static String _conversationPriority = ConversationPriority.Normal;
-
-        // The conversations.
-        // The conversation between the customer and the UCMA application.
-        private Conversation _incomingConversation;
-        // The conversation between the UCMA application and the agent.
-        private Conversation _outgoingConversation;
-
-        // BackToBackCall and associated fields
-        private BackToBackCall _b2bCall;
-        // _outgoingCallLeg contains the settings for the leg from the UCMA application to the agent.
-        private BackToBackCallSettings _outgoingCallLeg;
-        // _incomingCallLeg contains the settings for the leg from the customer to the UCMA application.
-        private BackToBackCallSettings _incomingCallLeg;
+        private UcmaHelper _helper;
+        private UserEndpoint _userEndpoint;
 
         // Wait handles are used to synchronize the main thread and the worker thread that is
         // used for callbacks and event handlers.
-        private AutoResetEvent _waitForConversationToTerminate = new AutoResetEvent(false);
-        private AutoResetEvent _waitForCallToEstablish = new AutoResetEvent(false);
-        private AutoResetEvent _waitForConferenceJoin = new AutoResetEvent(false);
-        private AutoResetEvent _waitForCallorInviteRecv = new AutoResetEvent(false);
-        private AutoResetEvent _waitForB2BCallToEstablish = new AutoResetEvent(false);
-        private AutoResetEvent _waitUntilOneUserHangsUp = new AutoResetEvent(false);
-        private AutoResetEvent _waitForB2BCallToTerminate = new AutoResetEvent(false);
+        private AutoResetEvent _waitForTranscriptSessionStarted = new AutoResetEvent(false);
+        private AutoResetEvent _waitForTranscriptSessionTerminated = new AutoResetEvent(false);
+        private AutoResetEvent _waitForUserEndpointTerminated = new AutoResetEvent(false);
+        private CancellationToken _cancelToken;
+        private Task _runTask;
+        private Task _shutdownTask;
 
-        private CancellationTokenSource _cancelToken;
+        #region Properties
 
         public Guid Identity
         {
-            get { return _sessionManagerId; }
+            get { return _identity; }
         }
+
+        public AutoResetEvent TranscriptSessionStartedWaitHandle
+        {
+            get { return _waitForTranscriptSessionStarted; }
+        }
+
+        public AutoResetEvent TranscriptSessionTerminatedWaitHandle
+        {
+            get { return _waitForTranscriptSessionTerminated; }
+        }
+
+        #endregion // Properties
 
         public TranscriptRecorderSessionManager()
         {
-            _sessionManagerId = new Guid();
+            _identity = Constants.NextGuid();
             _activeConversationSessions = new Dictionary<Conversation, TranscriptRecorderSession>();
             _activeConferenceSessions = new Dictionary<ConferenceSession, TranscriptRecorderSession>();
-            _cancelToken = new CancellationTokenSource();
-        }
-
-        public void Run()
-        {
             _helper = new UcmaHelper();
-            _userEndpoint = _helper.CreateEstablishedUserEndpoint("MeetingTranscriptBot");
-            RegisterEndpointEvents();
-
-            _waitForCallorInviteRecv.WaitOne();
-            _waitForConversationToTerminate.WaitOne();
+            _userEndpoint = _helper.CreateEstablishedUserEndpoint(Constants.ApplicationEndpointName);
         }
 
-        public async Task RunAsync()
-        {
-            _helper = new UcmaHelper();   
-            _userEndpoint = _helper.CreateEstablishedUserEndpoint("MeetingTranscriptBot");
-            RegisterEndpointEvents();
+        #region Public Methods
 
-            List<Task> tasks = new List<Task>()
+        public async Task RunAsync(CancellationToken token)
+        {
+            NonBlockingConsole.WriteLine("RunAsync - Entry");
+            bool startTask = true;
+            List<Task> runTasks = new List<Task>();
+            lock (s_lock)
             {
-                Task.Factory.StartNew(() => WaitForCallOrInviteReceieved(), TaskCreationOptions.LongRunning),
-                Task.Factory.StartNew(() => WaitForConversationTerminated(), TaskCreationOptions.LongRunning)
-            };
+                if (_state != TranscriptSessionManagerState.Created)
+                {
+                    NonBlockingConsole.WriteLine("RunAsync - Warn: TranscriptSessionManager is already running.");
+                    startTask = false;
+                    if (_runTask != null)
+                    {
+                        runTasks.Add(_runTask);
+                    }
+                }
+                else
+                {
+                    _state = TranscriptSessionManagerState.Idle;
+                    _cancelToken = token;
+                    RegisterEndpointEvents();
+                    _runTask = new Task(() =>
+                        {
+                            #if (CONVERSATION_DIALIN_ENABLED)
+                            string conversationUri = _helper.GetRemoteUserURI();
+                            if (string.IsNullOrEmpty(conversationUri))
+                            {
+                                NonBlockingConsole.WriteLine("Error: Valid remote user Uri must be provided for CONVERSATION_DIALIN_ENABLED mode.\n Exiting...\n");
+                                return;
+                            }
+                            StartConversationTranscriptRecorderSession(conversationUri);
+                            #endif // (CONVERSATION_DIALIN_ENABLED)
 
-            await Task.WhenAll(tasks.ToArray());
+                            #if (CONFERENCE_DIALIN_ENABLED)
+                                string conferenceUri = _helper.GetConferenceURI();
+                                if (string.IsNullOrEmpty(conferenceUri))
+                                {
+                                    NonBlockingConsole.WriteLine("Error: Valid conference Uri must be provided for CONFERENCE_DIALIN_ENABLED mode.\n Exiting...\n");
+                                    return;
+                                }
+                                StartConferenceTranscriptRecorderSession(conferenceUri);
+                            #endif // CONFERENCE_DIALIN_ENABLED
 
-            // _waitForCallorInviteRecv.WaitOne();
-            // _waitForConversationToTerminate.WaitOne();
-        }
+                            _waitForTranscriptSessionStarted.WaitOne();
+                            _waitForTranscriptSessionTerminated.WaitOne();
+                        }, token);
+                    runTasks.Add(_runTask);
+                }
+            } // lock
 
-        /// <summary>
-        /// Join Conference and start TranscriptRecorderSession on Conference
-        /// </summary>
-        /// <param name="conferenceUri"></param>
-        /// <param name="options"></param>
-        public void StartConferenceTranscriptRecorderSession(string conferenceUri, ConferenceJoinOptions options)
-        {
-            Console.WriteLine("StartConferenceTranscriptRecorderSession - Entry. ConferenceUri: {0}", conferenceUri);
-            Console.WriteLine("StartConferenceTranscriptRecorderSession - Exit. ConferenceUri: {0}", conferenceUri);
-            throw new NotImplementedException();
+            if (startTask)
+            {
+                _runTask.Start();
+            }
+
+            await Task.WhenAll(runTasks.ToArray());
+
+            NonBlockingConsole.WriteLine("RunAsync - Exit");
         }
 
         /// <summary>
@@ -121,96 +135,116 @@ namespace LyncMeetingTranscriptBotApplication
         /// </summary>
         /// <param name="remoteUserUri"></param>
         /// <param name="options"></param>
-        public void StartConversationTranscriptRecorderSession(string remoteUserUri, CallEstablishOptions options)
+        public async Task StartConversationTranscriptRecorderSession(string remoteUserUri, CallEstablishOptions options = null)
         {
-            Console.WriteLine("StartConversationTranscriptRecorderSession - Entry. RemoteUserUri: {0}", remoteUserUri);
-            Console.WriteLine("StartConversationTranscriptRecorderSession - Exit. RemoteUserUri: {0}", remoteUserUri);
-            throw new NotImplementedException();
+            throw new NotImplementedException("StartConversationTranscriptRecorderSession is not yet implemented");
         }
 
-        public async Task WaitForCallOrInviteReceieved()
+        /// <summary>
+        /// Join Conference and start TranscriptRecorderSession on Conference
+        /// </summary>
+        /// <param name="conferenceUri"></param>
+        /// <param name="options"></param>
+        public async Task StartConferenceTranscriptRecorderSession(string conferenceUri, ConferenceJoinOptions options = null)
         {
-             await Task.Factory.StartNew(() =>
+            throw new NotImplementedException("StartConferenceTranscriptRecorderSession is not yet implemented");
+        }
+
+        public async Task ShutdownAsync(bool runSync = false)
+        {
+            NonBlockingConsole.WriteLine("ShutdownAsync - Entry");
+            bool startTask = true;
+            List<Task> preShutdownTasks = new List<Task>();
+            List<Task> shutdownTasks = new List<Task>();
+            lock (s_lock)
+            {
+                if (_state == TranscriptSessionManagerState.Terminating || _state == TranscriptSessionManagerState.Terminated)
                 {
-                    _waitForCallorInviteRecv.WaitOne();
-                }, _cancelToken.Token);
-        }
-
-        public async Task WaitForConversationTerminated()
-        {
-            await Task.Factory.StartNew(() =>
-            {
-                _waitForConversationToTerminate.WaitOne();
-            }, _cancelToken.Token);
-        }
-
-        public void Shutdown()
-        {
-            if (_isTerminating)
-            {
-                return;
-            }
-
-            Console.WriteLine("Shutdown - Entry");
-            _isTerminating = true;
-            try
-            {
-                SaveTranscripts();
-                SendTranscripts();
-
-                if (_cancelToken.Token.CanBeCanceled)
-                {
-                    _cancelToken.Cancel();
+                    NonBlockingConsole.WriteLine("Warn: Already shutdown or shutting down.");
+                    startTask = false;
+                    if (_shutdownTask != null)
+                    {
+                        shutdownTasks.Add(_shutdownTask);
+                    }
                 }
-
-                lock (_activeConversationSessions)
+                else
                 {
+                    _state = TranscriptSessionManagerState.Terminating;
+                    this.UnregisterEndpointEvents();
+
+                    List<TranscriptRecorderSession> sessionsToShutdown = new List<TranscriptRecorderSession>();
+                    // Add all active conversation transcript sessions to shutdown list
                     foreach (TranscriptRecorderSession t in _activeConversationSessions.Values)
                     {
-                        t.TranscriptRecorderSessionChanged -= this.TranscriptRecorder_OnTranscriptRecorderSessionChanged;
-                        t.TranscriptRecorderSessionShutdown -= this.TranscriptRecorder_OnTranscriptRecorderSessionShutdown;
-                        t.Shutdown();
+                        sessionsToShutdown.Add(t);
                     }
-
-                    _activeConversationSessions.Clear();
-                }
-
-                lock (_activeConferenceSessions)
-                {
+                    // Add all active conference transcript sessions to shutdown list
                     foreach (TranscriptRecorderSession t in _activeConferenceSessions.Values)
                     {
-                        t.TranscriptRecorderSessionChanged -= this.TranscriptRecorder_OnTranscriptRecorderSessionChanged;
-                        t.TranscriptRecorderSessionShutdown -= this.TranscriptRecorder_OnTranscriptRecorderSessionShutdown;
-                        t.Shutdown();
+                        sessionsToShutdown.Add(t);
                     }
+                    _shutdownTask = new Task(()=>
+                        {
+                            SaveTranscripts();
+                            SendTranscripts();
 
-                    _activeConferenceSessions.Clear();
-                }
+                            _activeConversationSessions.Clear();
+                            _activeConferenceSessions.Clear();
+                            foreach (TranscriptRecorderSession t in sessionsToShutdown)
+                            {
+                                Task task = new Task(()=>
+                                    {
+                                        t.TranscriptRecorderSessionChanged -= this.TranscriptRecorder_OnTranscriptRecorderSessionChanged;
+                                        t.TranscriptRecorderSessionShutdown -= this.TranscriptRecorder_OnTranscriptRecorderSessionShutdown;
+                                        t.Shutdown();
+                                    });
+                                task.Wait();
+                            }
 
-                if (_userEndpoint != null)
-                {
-                    this.UnregisterEndpointEvents();
-                    _userEndpoint.BeginTerminate(_userEndpoint.EndTerminate, _userEndpoint);
-                    _userEndpoint = null;
+                            // Terminate user endpoint
+                            if (_userEndpoint != null)
+                                {
+                                    
+                                    _userEndpoint.BeginTerminate(EndTerminateUserEndpoint, _userEndpoint);
+                                    _waitForUserEndpointTerminated.WaitOne();
+                                }
+
+                            // Clean up by shutting down the platform.
+                            if (_helper != null)
+                            {
+                                _helper.ShutdownPlatform();
+                            }
+
+                            _state = TranscriptSessionManagerState.Terminated;
+                        });
+                    shutdownTasks.Add(_shutdownTask);
                 }
-            }
-            finally
+            } // lock
+
+            if (startTask)
             {
-                // Clean up by shutting down the platform.
-                if (_helper != null)
-                {
-                    _helper.ShutdownPlatform();
-                }
-
-                Console.WriteLine("Shutdown - Exit");
+                _shutdownTask.Start();
             }
+
+            if (runSync)
+            {
+                Task.WhenAll(shutdownTasks.ToArray()).Wait();
+            }
+            else
+            {
+                await Task.WhenAll(shutdownTasks.ToArray());
+            }
+
+            NonBlockingConsole.WriteLine("ShutdownAsync - Exit");
         }
+
+        #endregion // Public Methods
 
         #region Helper Methods
 
         private void SaveTranscript(TranscriptRecorderSession trs)
         {
-            Console.WriteLine("SaveTranscript - Entry");
+            NonBlockingConsole.WriteLine("SaveTranscript - Entry");
 
             string filename = "LyncMeetingTranscript.txt";
             using (FileStream fs = new FileStream(filename, FileMode.OpenOrCreate))
@@ -221,14 +255,16 @@ namespace LyncMeetingTranscriptBotApplication
                 }
             }
 
-            Console.WriteLine("SaveTranscript - Exit");
+            NonBlockingConsole.WriteLine("SaveTranscript - Exit");
         }
 
-        // TODO: Save transcripts to share folder or upload to DB
         private void SaveTranscripts()
         {
-            Console.WriteLine("SaveTranscripts - Entry");
-            
+            NonBlockingConsole.WriteLine("SaveTranscripts - Entry");
+
+            // TODO: Save transcripts to network share folder or upload to DB
+
+            // Save transcripts in local file
             string filename = "LyncMeetingTranscript.txt";
             using (FileStream fs = new FileStream(filename, FileMode.OpenOrCreate))
             {
@@ -245,353 +281,330 @@ namespace LyncMeetingTranscriptBotApplication
                 }
             }
 
-            Console.WriteLine("SaveTranscripts - Exit");
+            NonBlockingConsole.WriteLine("SaveTranscripts - Exit");
         }
 
         private void SendTranscript(TranscriptRecorderSession trs)
         {
             // TODO
-            Console.WriteLine("SendTranscript - Entry");
-            Console.WriteLine("SendTranscript - Exit");
+            NonBlockingConsole.WriteLine("SendTranscript - Entry");
+            NonBlockingConsole.WriteLine("SendTranscript - Exit");
         }
 
         private void SendTranscripts()
         {
             // TODO
-            Console.WriteLine("SendTranscripts - Entry");
-            Console.WriteLine("SendTranscripts - Exit");
+            NonBlockingConsole.WriteLine("SendTranscripts - Entry");
+            NonBlockingConsole.WriteLine("SendTranscripts - Exit");
         }
 
         private void RegisterEndpointEvents()
         {
-            Console.WriteLine("RegisterEndpointEvents - Entry");
+            NonBlockingConsole.WriteLine("RegisterEndpointEvents - Entry");
             if (_userEndpoint != null)
             {
+                #if (CONVERSATION_DIALOUT_ENABLED || CONFERENCE_DIALOUT_ENABLED)
                 _userEndpoint.RegisterForIncomingCall<AudioVideoCall>(AudioVideoCall_Received);
                 _userEndpoint.RegisterForIncomingCall<InstantMessagingCall>(InstantMessagingCall_Received);
+                #endif // (CONVERSATION_DIALOUT_ENABLED || CONFERENCE_DIALOUT_ENABLED)
+
+                #if (CONFERENCE_DIALOUT_ENABLED)
                 _userEndpoint.ConferenceInvitationReceived += new EventHandler<ConferenceInvitationReceivedEventArgs>(UserEndpoint_ConferenceInvitationReceived);
+                #endif // (CONFERENCE_DIALOUT_ENABLED)
             }
 
-            Console.WriteLine("RegisterEndpointEvents - Exit");
+            NonBlockingConsole.WriteLine("RegisterEndpointEvents - Exit");
         }
 
         private void UnregisterEndpointEvents()
         {
-            Console.WriteLine("UnregisterEndpointEvents - Entry");
+            NonBlockingConsole.WriteLine("UnregisterEndpointEvents - Entry");
 
             if (_userEndpoint != null)
             {
+                #if (CONVERSATION_DIALOUT_ENABLED || CONFERENCE_DIALOUT_ENABLED)
                 _userEndpoint.UnregisterForIncomingCall<AudioVideoCall>(AudioVideoCall_Received);
                 _userEndpoint.UnregisterForIncomingCall<InstantMessagingCall>(InstantMessagingCall_Received);
+                #endif // (CONVERSATION_DIALOUT_ENABLED || CONFERENCE_DIALOUT_ENABLED)
+
+                #if (CONFERENCE_DIALOUT_ENABLED)
                 _userEndpoint.ConferenceInvitationReceived -= UserEndpoint_ConferenceInvitationReceived;
+                #endif // (CONFERENCE_DIALOUT_ENABLED)
             }
 
-            Console.WriteLine("UnregisterEndpointEvents - Exit");
+            NonBlockingConsole.WriteLine("UnregisterEndpointEvents - Exit");
         }
 
-        private void StopTranscriptRecorderSession(Guid sessionId)
+        private async Task StopTranscriptRecorderSessionAsync(Guid sessionId, bool shutdownSession = true)
         {
-            Console.WriteLine("StopTranscriptRecorderSession - Entry. SessionId: {0}.", sessionId.ToString());
-            TranscriptRecorderSession convSessionToStop = null;
-            lock (_activeConversationSessions)
+            NonBlockingConsole.WriteLine("StopTranscriptRecorderSession - Entry. SessionId: {0}.", sessionId.ToString());
+            TranscriptRecorderSession sessionToStop = null;
+            bool shutdownManager = false;
+            lock (s_lock)
             {
-                foreach (TranscriptRecorderSession trs in _activeConversationSessions.Values)
+                if (_state == TranscriptSessionManagerState.Active)
                 {
-                    if (trs.SessionId.Equals(sessionId))
+                    foreach (TranscriptRecorderSession trs in _activeConversationSessions.Values)
                     {
-                        convSessionToStop = trs;
-                        break;
+                        if (trs.SessionId.Equals(sessionId))
+                        {
+                            sessionToStop = trs;
+                            break;
+                        }
                     }
-                }
 
-                if (convSessionToStop != null)
-                {
-                    _activeConversationSessions.Remove(convSessionToStop.Conversation);
-                }
-            } // lock
-
-            TranscriptRecorderSession confSessionToStop = null;
-            lock (_activeConferenceSessions)
-            {
-                foreach (TranscriptRecorderSession trs in _activeConferenceSessions.Values)
-                {
-                    if (trs.SessionId.Equals(sessionId))
+                    if (sessionToStop != null)
                     {
-                        confSessionToStop = trs;
-                        break;
-                    }
-                }
+                        _activeConversationSessions.Remove(sessionToStop.Conversation);
 
-                if (confSessionToStop != null)
-                {
-                    _activeConferenceSessions.Remove(confSessionToStop.Conference);
-                }
+                        if ((sessionToStop.Conference != null) && _activeConferenceSessions.ContainsKey(sessionToStop.Conference))
+                        {
+                            _activeConferenceSessions.Remove(sessionToStop.Conference);
+                        }
+                    }
+                    else
+                    {
+                        foreach (TranscriptRecorderSession trs in _activeConferenceSessions.Values)
+                        {
+                            if (trs.SessionId.Equals(sessionId))
+                            {
+                                sessionToStop = trs;
+                                break;
+                            }
+                        }
+
+                        if (sessionToStop != null)
+                        {
+                            _activeConferenceSessions.Remove(sessionToStop.Conference);
+                        }
+                    }
+
+                    if ((_activeConferenceSessions.Count + _activeConversationSessions.Count) == 0)
+                    {
+                        shutdownManager = true;
+                    }
+                } // (_state == TranscriptSessionManagerState.Active)
             } // lock
 
             // Only need to shutdown TranscriptRecorderSession once (if found)
-            if (convSessionToStop != null)
+            if (sessionToStop != null)
             {
-                SaveTranscript(convSessionToStop);
-                convSessionToStop.Shutdown();
-            }
-            else if (confSessionToStop != null)
-            {
-                SaveTranscript(confSessionToStop);
-                confSessionToStop.Shutdown();
+                Task task = new Task(() =>
+                    {
+                        SaveTranscript(sessionToStop);
+                        SendTranscript(sessionToStop);
+
+                        if (shutdownSession)
+                        {
+                            sessionToStop.Shutdown();
+                        }
+                    });
+
+                List<Task> tasks = new List<Task>()
+                {
+                    task
+                };
+                task.Start();
+                await Task.WhenAll(tasks);
+                if (shutdownManager)
+                {
+                    await this.ShutdownAsync();
+                }
             }
             else
             {
-                Console.WriteLine("StopTranscriptRecorderSession: TranscriptRecorderSession {0} doesn't exist or was already shutdown", sessionId.ToString());
+                NonBlockingConsole.WriteLine("StopTranscriptRecorderSession: TranscriptRecorderSession {0} doesn't exist or was already shutdown",
+                    sessionId.ToString());
             }
 
-            Console.WriteLine("StopTranscriptRecorderSession - Exit. SessionId: {0}.", sessionId.ToString());
+            NonBlockingConsole.WriteLine("StopTranscriptRecorderSession - Exit. SessionId: {0}.", sessionId.ToString());
         }
 
         #endregion // Helper Methods
 
         #region Event Handlers
 
-        // Delegate that is called when an incoming AudioVideoCall arrives.
+        /// <summary>
+        /// Delegate that is called when an incoming AudioVideoCall arrives.
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         void AudioVideoCall_Received(object sender, CallReceivedEventArgs<AudioVideoCall> e)
         {
-            if (_activeConversationSessions.ContainsKey(e.Call.Conversation))
-            {
-                _activeConversationSessions[e.Call.Conversation].AddAVIncomingCall(e);
-            }
-            else if (e.IsNewConversation)
-            {
-                Conversation c = e.Call.Conversation;
-                TranscriptRecorderSession t = new TranscriptRecorderSession(e);
-                t.TranscriptRecorderSessionChanged += this.TranscriptRecorder_OnTranscriptRecorderSessionChanged;
-                t.TranscriptRecorderSessionShutdown += this.TranscriptRecorder_OnTranscriptRecorderSessionShutdown;
-                _activeConversationSessions.Add(c, t);
-            }
-            else if (e.IsConferenceDialOut)
-            {
-                // TODO: Join Conference then accept call
-                /*
-                 * McuDialOutOptions mcuDialOutOptions = new McuDialOutOptions();
-                    mcuDialOutOptions.ParticipantUri = "sip:alice@contoso.com";
-                    mcuDialOutOptions.ParticipantDisplayName = "Alice";
-                    mcuDialOutOptions.PreferredLanguage = CultureInfo.GetCultureInfo("en-us");
-
-                    conversation.ConferenceSession.AudioVideoMcuSession.BeginDialOut("tel:+14255551234", mcuDialOutOptions, dialOutCallback, state);
-
-                 */
-            }
-
-            _waitForCallorInviteRecv.Set();
-
-            /*
-            //_waitForCallToBeReceived.Set();
-            _audioVideoCall = e.Call;
-            SetUserConversation(_audioVideoCall.Conversation);
-            _audioVideoCall.AudioVideoFlowConfigurationRequested +=
-                new EventHandler<AudioVideoFlowConfigurationRequestedEventArgs>(this.AudioVideoCall_FlowConfigurationRequested);
-
-            // For logging purposes, register for notification of the StateChanged event on the call.
-            _audioVideoCall.StateChanged +=
-                      new EventHandler<CallStateChangedEventArgs>(AudioVideoCall_StateChanged);
-
-            // Remote Participant URI represents the far end (caller) in this conversation. 
-            Console.WriteLine("Call received from: " + e.RemoteParticipant.Uri);
-
-            // Now, accept the call. CallAcceptCB will run on the same thread.
-            _audioVideoCall.BeginAccept(AudioVideoCallAcceptedCallBack, _audioVideoCall);
-             * */
+            Task.Factory.StartNew(() =>
+                {
+                    try
+                    {
+                        if (_activeConversationSessions.ContainsKey(e.Call.Conversation))
+                        {
+                            _activeConversationSessions[e.Call.Conversation].AddAVIncomingCall(e);
+                        }
+                        else if (e.IsNewConversation)
+                        {
+                            Conversation c = e.Call.Conversation;
+                            TranscriptRecorderSession t = new TranscriptRecorderSession(e);
+                            t.TranscriptRecorderSessionChanged += this.TranscriptRecorder_OnTranscriptRecorderSessionChanged;
+                            t.TranscriptRecorderSessionShutdown += this.TranscriptRecorder_OnTranscriptRecorderSessionShutdown;
+                            _activeConversationSessions.Add(c, t);
+                        }
+                        else if (e.IsConferenceDialOut)
+                        {
+                            // TODO: Join Conference then accept AV call
+                            throw new NotImplementedException("AudioVideoCall_Received with ConferenceDialOut AudioVideoCall is not yet supported.");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        NonBlockingConsole.WriteLine("Error: Exception thrown in AudioVideoCall_Received: " + ex.ToString());
+                    }
+                    finally
+                    {
+                        _waitForTranscriptSessionStarted.Set();
+                    }
+                });
         }
 
-        // Delegate that is called when an incoming InstantMessagingCall arrives.
+        /// <summary>
+        /// Delegate that is called when an incoming InstantMessagingCall arrives.
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         void InstantMessagingCall_Received(object sender, CallReceivedEventArgs<InstantMessagingCall> e)
         {
-            if (_activeConversationSessions.ContainsKey(e.Call.Conversation))
-            {
-                _activeConversationSessions[e.Call.Conversation].AddIMIncomingCall(e);
-            }
-            else if (e.IsNewConversation)
-            {
-                Conversation c = e.Call.Conversation;
-                TranscriptRecorderSession t = new TranscriptRecorderSession(e);
-                t.TranscriptRecorderSessionChanged += this.TranscriptRecorder_OnTranscriptRecorderSessionChanged;
-                t.TranscriptRecorderSessionShutdown += this.TranscriptRecorder_OnTranscriptRecorderSessionShutdown;
-                _activeConversationSessions.Add(c, t);
-            }
-            else if (e.IsConferenceDialOut)
-            {
-                // TODO: Join conference then accept call
-                /*
-                 * McuDialOutOptions mcuDialOutOptions = new McuDialOutOptions();
-                mcuDialOutOptions.ParticipantUri = "sip:alice@contoso.com";
-                mcuDialOutOptions.ParticipantDisplayName = "Alice";
-                mcuDialOutOptions.PreferredLanguage = CultureInfo.GetCultureInfo("en-us");
-
-                conversation.ConferenceSession.AudioVideoMcuSession.BeginDialOut("tel:+14255551234", mcuDialOutOptions, dialOutCallback, state); 
-                 */
-            }
-
-            _waitForCallorInviteRecv.Set();
-
-            /*
-            //_waitForCallToBeReceived.Set();
-            _instantMessagingCall = e.Call;
-
-            SetUserConversation(_instantMessagingCall.Conversation);
-
-            // Subscribe to InstantMessagingCall events
-            _instantMessagingCall.InstantMessagingFlowConfigurationRequested +=
-                new EventHandler<InstantMessagingFlowConfigurationRequestedEventArgs>(
-                this.InstantMessagingCall_FlowConfigurationRequested);
-            // For logging purposes, register for notification of the StateChanged event on the call.
-            _instantMessagingCall.StateChanged +=
-                      new EventHandler<CallStateChangedEventArgs>(InstantMessagingCall_StateChanged);
-
-            // Remote Participant URI represents the far end (caller) in this conversation. 
-            Console.WriteLine("Call received from: " + e.RemoteParticipant.Uri);
-
-            // Now, accept the call. InstantMessagingCallAcceptedCallback will run on the same thread.
-            _instantMessagingCall.BeginAccept(InstantMessagingCallAcceptedCallBack, _instantMessagingCall);
-             */
+            Task.Factory.StartNew(()=>
+                {
+                try
+                {
+                    if (_activeConversationSessions.ContainsKey(e.Call.Conversation))
+                    {
+                        _activeConversationSessions[e.Call.Conversation].AddIMIncomingCall(e);
+                    }
+                    else if (e.IsNewConversation)
+                    {
+                        Conversation c = e.Call.Conversation;
+                        TranscriptRecorderSession t = new TranscriptRecorderSession(e);
+                        t.TranscriptRecorderSessionChanged += this.TranscriptRecorder_OnTranscriptRecorderSessionChanged;
+                        t.TranscriptRecorderSessionShutdown += this.TranscriptRecorder_OnTranscriptRecorderSessionShutdown;
+                        _activeConversationSessions.Add(c, t);
+                    }
+                    else if (e.IsConferenceDialOut)
+                    {
+                        // TODO: Join Conference then accept IM call
+                        throw new NotImplementedException("InstantMessagingCall_Received with ConferenceDialOut AudioVideoCall is not yet supported.");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    NonBlockingConsole.WriteLine("Error: Exception thrown in InstantMessagingCall_Received: " + ex.ToString());
+                }
+                finally
+                {
+                    _waitForTranscriptSessionStarted.Set();
+                }
+            });
         }
 
+        /// <summary>
+        /// Delegate that is called when an incoming ConferenceInvite is received.
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         void UserEndpoint_ConferenceInvitationReceived(object sender, ConferenceInvitationReceivedEventArgs e)
         {
-            ConferenceInvitation invite = e.Invitation;
-            Conversation conversation = invite.Conversation;
-            // TODO: indexing by conv id doesn't work for "public meeting recording" scenario
-            if (_activeConversationSessions.ContainsKey(conversation))
+            Task.Factory.StartNew(() =>
             {
-                _activeConversationSessions[conversation].AddIncomingInvitedConference(e);
-            }
-            else
-            {
-                TranscriptRecorderSession t = new TranscriptRecorderSession(e);
-                _activeConversationSessions.Add(conversation, t);
-                /*
-                if (e.IsConferenceDialOut)
+                try
                 {
-                    e.Invitation
-                 *                 /*
-                 * McuDialOutOptions mcuDialOutOptions = new McuDialOutOptions();
-mcuDialOutOptions.ParticipantUri = "sip:alice@contoso.com";
-mcuDialOutOptions.ParticipantDisplayName = "Alice";
-mcuDialOutOptions.PreferredLanguage = CultureInfo.GetCultureInfo("en-us");
-
-conversation.ConferenceSession.AudioVideoMcuSession.BeginDialOut("tel:+14255551234", mcuDialOutOptions, dialOutCallback, state);
-
-                 */
-                //}
-                //else
-                //{*/
-                    //_activeConversationSessions.Add(conversation, t);
-                //}
-            }
-
-            _waitForCallorInviteRecv.Set();
+                    ConferenceInvitation invite = e.Invitation;
+                    Conversation conversation = invite.Conversation;
+                    // TODO: indexing by conv id doesn't work for "public meeting recording" scenario
+                    if (_activeConversationSessions.ContainsKey(conversation))
+                    {
+                        _activeConversationSessions[conversation].AddIncomingInvitedConference(e);
+                    }
+                    else
+                    {
+                        TranscriptRecorderSession t = new TranscriptRecorderSession(e);
+                        _activeConversationSessions.Add(conversation, t);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    NonBlockingConsole.WriteLine("Error: Exception thrown in UserEndpoint_ConferenceInvitationReceived: " + ex.ToString());
+                }
+                finally
+                {
+                    _waitForTranscriptSessionStarted.Set();
+                }
+            });
         }
 
-        // TODO: Need to raise an event on MeetingTranscriptSession when TranscriptRecorder is shutdown (or conversation/conference ends)
+        #region TranscriptRecorderSession Event Handlers
+
         void TranscriptRecorder_OnTranscriptRecorderSessionShutdown(object sender, TranscriptRecorderSessionShutdownEventArgs e)
         {
-            Console.WriteLine("TranscriptRecorder_OnTranscriptRecorderSessionShutdown event. SessionId: {0}. ConversationId: {1}. ConferenceId: {2}",
+            NonBlockingConsole.WriteLine("TranscriptRecorder_OnTranscriptRecorderSessionShutdown event. SessionId: {0}. ConversationId: {1}. ConferenceId: {2}",
                 e.SessionId.ToString(),
                 (e.Conversation == null) ? "null" : e.Conversation.Id,
                 (e.Conference == null) ? "null" : e.Conference.ConferenceUri);
 
-            TranscriptRecorderSession shutdownSession = null;
-            if (e.Conference != null)
+            Task task = StopTranscriptRecorderSessionAsync(e.SessionId, false);
+            if (task != null)
             {
-                lock (_activeConferenceSessions)
-                {
-                    if (_activeConferenceSessions.TryGetValue(e.Conference, out shutdownSession))
-                    {
-                        Console.WriteLine("TranscriptRecorder_OnTranscriptRecorderSessionShutdown: Removing TranscriptRecorderSession for Conference entry: {0}.",
-                            e.Conference.ConferenceUri);
-
-                        _activeConferenceSessions.Remove(e.Conference);
-                    }
-                } // lock
-            }
-            if (e.Conversation != null)
-            {
-                lock (_activeConversationSessions)
-                {
-                    if (_activeConversationSessions.ContainsKey(e.Conversation))
-                    {
-                        Console.WriteLine("TranscriptRecorder_OnTranscriptRecorderSessionShutdown: Removing TranscriptRecorderSession for Conversation entry: {0}.",
-                            e.Conversation.Id);
-
-                        if (shutdownSession == null)
-                        {
-                            shutdownSession = _activeConversationSessions[e.Conversation];
-                        }
-
-                        _activeConversationSessions.Remove(e.Conversation);
-                    }
-                } // lock
-            }
-
-            if (shutdownSession != null)
-            {
-                shutdownSession.TranscriptRecorderSessionChanged -= this.TranscriptRecorder_OnTranscriptRecorderSessionChanged;
-                shutdownSession.TranscriptRecorderSessionShutdown -= this.TranscriptRecorder_OnTranscriptRecorderSessionShutdown;
-                Console.WriteLine("TranscriptRecorder_OnTranscriptRecorderSessionShutdown: Saving Transcript of shutdown TranscriptRecorderSession. SessionId: {0}",
-                    shutdownSession.SessionId);
-                SaveTranscript(shutdownSession);
-            }
-            else
-            {
-                Console.WriteLine("TranscriptRecorder_OnTranscriptRecorderSessionShutdown: TranscriptRecorderSession doesn't exist or was already shutdown");
-            }
-
-            if (_activeConferenceSessions.Count == 0 && _activeConversationSessions.Count == 0)
-            {
-                this.Shutdown();
+                task.Wait();
             }
         }
 
         void TranscriptRecorder_OnTranscriptRecorderSessionChanged(object sender, TranscriptRecorderSessionChangedEventArgs e)
         {
-            Console.WriteLine("TranscriptRecorder_OnTranscriptRecorderSessionChanged event. SessionId: {0}. ConversationId: {1}. ConferenceId: {2}",
+            NonBlockingConsole.WriteLine("TranscriptRecorder_OnTranscriptRecorderSessionChanged event. SessionId: {0}. ConversationId: {1}. ConferenceId: {2}",
                 e.SessionId.ToString(),
                 (e.Conversation == null) ? "null" : e.Conversation.Id,
                 (e.Conference == null) ? "null" : e.Conference.ConferenceUri);
 
-            bool addedConferenceEntry = false;
             TranscriptRecorderSession session = null;
             if ((e.Conversation != null) && (e.Conference != null) 
                 && _activeConversationSessions.TryGetValue(e.Conversation, out session))
             {
                 // Add TranscriptRecorderSession to conference table (if no entry for this Conference already exists)
-                lock (_activeConferenceSessions)
+                lock (s_lock)
                 {
                     if (!_activeConferenceSessions.ContainsKey(e.Conference))
                     {
-                        Console.WriteLine("TranscriptRecorder_OnTranscriptRecorderSessionChanged: Adding TranscriptRecorderSession for Conference entry: {0}.",
+                        NonBlockingConsole.WriteLine("TranscriptRecorder_OnTranscriptRecorderSessionChanged: Adding TranscriptRecorderSession for Conference entry: {0}.",
                             e.Conference.ConferenceUri);
-
                         _activeConferenceSessions.Add(e.Conference, session);
-                        addedConferenceEntry = true;
-                    }
-                } // lock
 
-                // If successfully added TranscriptRecorderSession to conference table, remove from conversation table
-                if (addedConferenceEntry)
-                {
-                    lock (_activeConversationSessions)
-                    {
+                        // If successfully added TranscriptRecorderSession to conference table, remove from conversation table
                         if (_activeConversationSessions.ContainsKey(e.Conversation))
                         {
-                            Console.WriteLine("TranscriptRecorder_OnTranscriptRecorderSessionChanged: Removing TranscriptRecorderSession for Conversation entry: {0}.",
+                            NonBlockingConsole.WriteLine("TranscriptRecorder_OnTranscriptRecorderSessionChanged: Removing TranscriptRecorderSession for Conversation entry: {0}.",
                             e.Conversation.Id);
 
                             _activeConversationSessions.Remove(e.Conversation);
                         }
-                    } // lock
-                }
+                    }
+                } // lock
             }
             else
             {
-                Console.WriteLine("[Warn] TranscriptRecorder_OnTranscriptRecorderSessionChanged called on invalid Conversation or Conference. Ignoring event.");
+                NonBlockingConsole.WriteLine("[Warn] TranscriptRecorder_OnTranscriptRecorderSessionChanged called on invalid Conversation or Conference. Ignoring event.");
+            }
+        }
+
+        #endregion // TranscriptRecorderSession Event Handlers
+
+        public void EndTerminateUserEndpoint(IAsyncResult result)
+        {
+            UserEndpoint endpoint = (UserEndpoint)result.AsyncState;
+            try
+            {
+                endpoint.EndTerminate(result);
+            }
+            finally
+            {
+                _userEndpoint = null;
+                this._waitForUserEndpointTerminated.Set();
             }
         }
 
