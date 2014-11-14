@@ -163,7 +163,7 @@ namespace LyncMeetingTranscriptBotApplication
 
         public TranscriptRecorderSession(ConferenceInvitationReceivedEventArgs e, CancellationTokenSource cts = null)
         {
-            _sessionId = new Guid();
+            _sessionId = Constants.NextGuid();
             _transcriptRecorders = new List<MediaTranscriptRecorder>();
             _conversationToCallTranscriptMapping = new Dictionary<ConversationTranscriptRecorder, List<MediaTranscriptRecorder>>();
             _messages = new List<Message>();
@@ -181,7 +181,7 @@ namespace LyncMeetingTranscriptBotApplication
 
         public TranscriptRecorderSession(CallReceivedEventArgs<AudioVideoCall> e, CancellationTokenSource cts = null)
         {
-            _sessionId = new Guid();
+            _sessionId = Constants.NextGuid();
             _transcriptRecorders = new List<MediaTranscriptRecorder>();
             _conversationToCallTranscriptMapping = new Dictionary<ConversationTranscriptRecorder, List<MediaTranscriptRecorder>>();
             _messages = new List<Message>();
@@ -203,7 +203,7 @@ namespace LyncMeetingTranscriptBotApplication
 
         public TranscriptRecorderSession(CallReceivedEventArgs<InstantMessagingCall> e, CancellationTokenSource cts = null)
         {
-            _sessionId = new Guid();
+            _sessionId = Constants.NextGuid();
             _transcriptRecorders = new List<MediaTranscriptRecorder>();
             _conversationToCallTranscriptMapping = new Dictionary<ConversationTranscriptRecorder, List<MediaTranscriptRecorder>>();
             _messages = new List<Message>();

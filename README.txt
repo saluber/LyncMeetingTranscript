@@ -5,6 +5,7 @@ Author: Samantha Luber (samil AT microsoft.com)
 Project site: https://github.com/saluber/LyncMeetingTranscript
 ------------------------------------------------------------------
 Overview:
+Lync Meeting Transcript application
 "Real-time transcripts of Lync meetings"
 
 Lync is a great tool for communication and collaboration across various business units. 
@@ -13,6 +14,13 @@ IM chats and video sharing during the meeting. But do you know whether a visuall
 that is coming across the meeting? Or will a hearing impaired person be able to hear what is discussed in the meetings? 
 Or would it simply be nice to have a live-generated transcript of a current or past meeting to review what was discussed? 
 Lync Meeting Transcript is created with the aim of helping Lync users to the generates real-time transcripts of Lync meetings.
+
+Architecture Diagrams:
+LyncMeetingTranscript_ComponentDiagrams.vsdx (LyncMeetingTranscript_ComponentDiagrams.png)
+LyncMeetingTranscript_ClassDiagram.vsdx (LyncMeetingTranscript_ClassDiagram.png)
+
+Overview Presentation:
+LyncMeetingTranscript.pptx
 ------------------------------------------------------------------
 Setup:
 Client Application:
