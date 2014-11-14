@@ -4,12 +4,14 @@ Application Name: Lync Meeting Transcript
 Application ID: 5c25bcb7-4df6-4746-8b71-740ed37ab47f
 
 Prerequisites (for compiling and running in Visual Studio)
-- Visual Studio 2012
-- Microsoft UCMA 4.0 SDK
-- Microsoft Speech 11.0 SDZK
+- Visual Studio 2010
+- Microsoft UCMA 3.0 SDK
+- Microsoft UCMA 3.0 Runtime
+- Microsoft Speech Server v10.2
+- Microsoft Speech Language Pack for en-US locale (v10.2)
 
 Prerequisites (for running installed sample on client machines)
-- Microsoft Lync 
+- Microsoft Lync Desktop Client 2010+
 
 ================================================
 Install instructions:
